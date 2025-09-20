@@ -1,10 +1,11 @@
 scr0 = $0400
 scr1 = $2400
-row = 40
+colmem = $d800
+charsPerRow = 40
 lines = 25
 chunks = 4
 rowsPerChunk = 6
-chunkSize = row * rowsPerChunk
+chunkSize = charsPerRow * rowsPerChunk
 SCROLLX = $fb
 CHARBANK = $fc
 SCROLLWORKPTR = $fd
@@ -100,7 +101,7 @@ stillWorkToDo:
     rts
 
 swap:
-    lda CHARBANK        ; Swap frame $0400/$2400
+    lda CHARBANK        ; Swap frame scr0/scr1
     eor #$80
     sta CHARBANK
     lda $d018
@@ -114,14 +115,14 @@ swap:
         ldx #0
 .chunkNext:
         !for r, rowsPerChunk {
-            lda .startChr + (r - 1) * row + 2,x
-            sta .startChr + (r - 1) * row,x
+            lda .startChr + (r - 1) * charsPerRow + 2,x
+            sta .startChr + (r - 1) * charsPerRow,x
         }
         inx
-        cpx #row - 2
+        cpx #charsPerRow - 2
         beq .chunkDone
         jmp .chunkNext
-.chunkDone:        
+.chunkDone:
         rts
     }
 
@@ -146,11 +147,11 @@ moveColors:
     ldx #0
 colorNext:
     !for r, lines  {
-        lda $d801 + (r - 1) * row,x
-        sta $d800 + (r - 1) * row,x
+        lda colmem + (r - 1) * charsPerRow + 1,x
+        sta colmem + (r - 1) * charsPerRow,x
     }
     inx
-    cpx #row - 1
+    cpx #charsPerRow - 1
     beq colorsDone
     jmp colorNext
 colorsDone:
@@ -179,11 +180,11 @@ work:
 endWork:
 
 copyBacking:
-    ldx #row-1
+    ldx #charsPerRow-1
 backingNext:
     !for r, lines  {
-        lda $0400 + (r - 1) * row,x
-        sta $2401 + (r - 1) * row,x
+        lda scr0 + (r - 1) * charsPerRow,x
+        sta scr1 + (r - 1) * charsPerRow + 1,x
     }
     dex
     bmi backingDone
@@ -201,8 +202,8 @@ debugg:
     sec
     sbc #57
 okNum:
-    sta $0400 + 40*24 + 2
-    sta $2400 + 40*24 + 2
+    sta scr0 + 40*24 + 2
+    sta scr1 + 40*24 + 2
     lda #1
-    sta $d800 + 40*24 + 2
+    sta colmem + 40*24 + 2
     rts
