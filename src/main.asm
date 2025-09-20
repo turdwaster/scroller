@@ -54,7 +54,7 @@ irq:
 
     inc DELAY
     lda DELAY
-    cmp #8
+    cmp #40
     bne exitirq
     lda #0
     sta DELAY
@@ -71,6 +71,20 @@ xOk:                    ; Set scroll x
     and #255-7
     ora SCROLLX
     sta $d016
+
+debugg:
+    lda SCROLLWORKPTR
+    lsr
+    clc
+    cmp #9
+    bcc okNum
+    adc #65-48-10
+okNum:
+    adc #48
+    sta $0400 + 40*24 + 2
+    sta $2400 + 40*24 + 2
+    lda #1
+    sta $d800 + 40*24 + 2
 
     ldy SCROLLWORKPTR   ; Execute current scroll work item
     lda work,y
@@ -106,7 +120,7 @@ swap:
     !macro moveAChunk .scr,.c {
         .startChr = .scr + (.c - 1) * chunkSize
         ldx #0
-        .chunkNext:
+.chunkNext:
         !for r, rowsPerChunk {
             lda .startChr + (r - 1) * row + 1,x
             sta .startChr + (r - 1) * row,x
@@ -134,19 +148,24 @@ moveChunk2:
     }
 
 moveColorsAndSwap:
-    ldx #chunks * rowsPerChunk - 1
+    jsr swap
+
+moveColors:
+    ldx #0
 colorNext:
-    !for r, 39  {
+    !for r, row-1  {
         lda $d800 + r,x
         sta $d800 + r - 1,x
     }
-    dex
-    bmi colorsDone
+    txa
+    clc
+    adc #40
+    tax
+    bcs colorsDone
     jmp colorNext
 colorsDone:
-    jmp swap
+    rts
 
-    !byte $aa
 work:
     !for c, chunks {
         !byte <(moveChunk2 + chrMoveAlign * (c-1)), >(moveChunk2 + chrMoveAlign * (c-1))
@@ -168,8 +187,6 @@ work:
 
     !byte <moveColorsAndSwap, >moveColorsAndSwap
 endWork:
-
-    !byte $aa
 
 copyBacking:
     ldx #0
