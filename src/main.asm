@@ -1,6 +1,7 @@
 scr0 = $0400
 scr1 = $2400
 row = 40
+lines = 25
 chunks = 4
 rowsPerChunk = 6
 chunkSize = row * rowsPerChunk
@@ -153,15 +154,13 @@ moveColorsAndSwap:
 moveColors:
     ldx #0
 colorNext:
-    !for r, row-1  {
-        lda $d800 + r,x
-        sta $d800 + r - 1,x
+    !for r, lines-1  {
+        lda $d801 + (r - 1) * row,x
+        sta $d800 + (r - 1) * row,x
     }
-    txa
-    clc
-    adc #40
-    tax
-    bcs colorsDone
+    inx
+    cpx #row - 1
+    beq colorsDone
     jmp colorNext
 colorsDone:
     rts
