@@ -53,12 +53,19 @@ irq:
     lda #$01
     sta $d020
 
-    inc DELAY
-    lda DELAY
-    cmp #40
-    bne exitirq
-    lda #0
-    sta DELAY
+;    inc DELAY
+;    lda DELAY
+;    cmp #40
+;    bne exitirq
+;    lda #0
+;    sta DELAY
+
+    jsr skipandhop
+
+exitirq:
+    lda #$00
+    sta $d020
+    jmp $ea31 ; $EA81 = no other handling of IRQs
 
 skipandhop:
     dec SCROLLX         ; Move one pixel to the left
@@ -69,24 +76,11 @@ skipandhop:
 
 xOk:                    ; Set scroll x
     lda $d016
-    and #255-7
+    and #255-15
     ora SCROLLX
     sta $d016
 
-debugg:
-    lda SCROLLWORKPTR
-    lsr
-    clc
-    adc #48
-    cmp #48 + 10
-    bcc okNum
-    sec
-    sbc #57
-okNum:
-    sta $0400 + 40*24 + 2
-    sta $2400 + 40*24 + 2
-    lda #1
-    sta $d800 + 40*24 + 2
+    ;jsr debugg
 
     ldy SCROLLWORKPTR   ; Execute current scroll work item
     lda work,y
@@ -103,11 +97,7 @@ trampo:
     ldy #0
 stillWorkToDo:
     sty SCROLLWORKPTR
-
-exitirq:
-    lda #$00
-    sta $d020
-    jmp $ea31 ; $EA81 = no other handling of IRQs
+    rts
 
 swap:
     lda CHARBANK        ; Swap frame $0400/$2400
@@ -124,11 +114,11 @@ swap:
         ldx #0
 .chunkNext:
         !for r, rowsPerChunk {
-            lda .startChr + (r - 1) * row + 1,x
+            lda .startChr + (r - 1) * row + 2,x
             sta .startChr + (r - 1) * row,x
         }
         inx
-        cpx #row - 1
+        cpx #row - 2
         beq .chunkDone
         jmp .chunkNext
 .chunkDone:        
@@ -155,7 +145,7 @@ moveColorsAndSwap:
 moveColors:
     ldx #0
 colorNext:
-    !for r, lines-1  {
+    !for r, lines  {
         lda $d801 + (r - 1) * row,x
         sta $d800 + (r - 1) * row,x
     }
@@ -189,19 +179,30 @@ work:
 endWork:
 
 copyBacking:
-    ldx #0
-copyMore:
-    lda $0400,x
-    sta $2400,x
-    lda $0500,x
-    sta $2500,x
-    lda $0600,x
-    sta $2600,x
-    lda $0700,x
-    sta $2700,x
-
-    txa
-    sta $d800,x
+    ldx #row-1
+backingNext:
+    !for r, lines  {
+        lda $0400 + (r - 1) * row,x
+        sta $2401 + (r - 1) * row,x
+    }
     dex
-    bne copyMore
+    bmi backingDone
+    jmp backingNext
+backingDone:
+    rts
+
+debugg:
+    lda SCROLLWORKPTR
+    lsr
+    clc
+    adc #48
+    cmp #48 + 10
+    bcc okNum
+    sec
+    sbc #57
+okNum:
+    sta $0400 + 40*24 + 2
+    sta $2400 + 40*24 + 2
+    lda #1
+    sta $d800 + 40*24 + 2
     rts
