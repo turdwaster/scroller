@@ -77,11 +77,12 @@ debugg:
     lda SCROLLWORKPTR
     lsr
     clc
-    cmp #9
-    bcc okNum
-    adc #65-48-10
-okNum:
     adc #48
+    cmp #48 + 10
+    bcc okNum
+    sec
+    sbc #57
+okNum:
     sta $0400 + 40*24 + 2
     sta $2400 + 40*24 + 2
     lda #1
