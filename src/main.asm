@@ -2,14 +2,19 @@ scr0 = $0400
 scr1 = $2400
 colmem = $d800
 charsPerRow = 40
-lines = 25
+lines = 24
 chunks = 4
 rowsPerChunk = 6
 chunkSize = charsPerRow * rowsPerChunk
-SCROLLX = $fb
-CHARBANK = $fc
+
+; Pointers
+LEVELDATA = $f8
+
+; Bytes
+SCROLLX = $fc
 SCROLLWORKPTR = $fd
-DELAY = $fe
+CHARBANK = $fe
+DELAY = $ff
 chrMoveAlign = 64
 
 *=$0801
@@ -23,6 +28,10 @@ main:
     lda #0
     sta SCROLLWORKPTR
     sta DELAY
+    lda #<level
+    sta LEVELDATA
+    lda #>level
+    sta LEVELDATA+1
     jsr copyBacking
 
 install:
@@ -54,12 +63,12 @@ irq:
     lda #$01
     sta $d020
 
-;    inc DELAY
-;    lda DELAY
-;    cmp #40
-;    bne exitirq
-;    lda #0
-;    sta DELAY
+    inc DELAY
+    lda DELAY
+    cmp #20
+    bne exitirq
+    lda #0
+    sta DELAY
 
     jsr skipandhop
 
@@ -81,7 +90,14 @@ xOk:                    ; Set scroll x
     ora SCROLLX
     sta $d016
 
-    ;jsr debugg
+    lda SCROLLWORKPTR
+    lsr
+    ldx #0
+    jsr debugg
+    lda SCROLLWORKPTR
+    lsr
+    ldx #0
+    jsr debugg
 
     ldy SCROLLWORKPTR   ; Execute current scroll work item
     lda work,y
@@ -91,6 +107,7 @@ xOk:                    ; Set scroll x
 trampo:
     jsr 0
     
+    ldy SCROLLWORKPTR
     iny                 ; Skip to next work item
     iny
     cpy #endWork-work
@@ -98,16 +115,6 @@ trampo:
     ldy #0
 stillWorkToDo:
     sty SCROLLWORKPTR
-    rts
-
-swap:
-    lda CHARBANK        ; Swap frame scr0/scr1
-    eor #$80
-    sta CHARBANK
-    lda $d018
-    and #15
-    ora CHARBANK
-    sta $d018
     rts
 
     !macro moveAChunk .scr,.c {
@@ -128,7 +135,7 @@ swap:
 
     !align chrMoveAlign - 1, 0
 
-moveChunk:
+moveChunk1:
     !for c, chunks {
         +moveAChunk scr0, c
         !align chrMoveAlign-1, 0
@@ -141,9 +148,14 @@ moveChunk2:
     }
 
 moveColorsAndSwap:
-    jsr swap
+    lda CHARBANK        ; Swap frame scr0/scr1
+    eor #$80
+    sta CHARBANK
+    lda $d018
+    and #15
+    ora CHARBANK
+    sta $d018
 
-moveColors:
     ldx #0
 colorNext:
     !for r, lines  {
@@ -155,28 +167,78 @@ colorNext:
     beq colorsDone
     jmp colorNext
 colorsDone:
+noWork:
     rts
 
+fillColumn1:
+    ldy #0
+    !for r, lines  {
+        lda (LEVELDATA),y
+        sta scr0 + (r - 1) * charsPerRow + (charsPerRow - 1)
+        iny
+    }
+    rts
+
+fillColumn2:
+    ldy #0
+    !for r, lines  {
+        lda (LEVELDATA),y
+        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - 1)
+        iny
+    }
+    rts
+
+bumpLevelPtr:
+    ; Advance level data pointer
+    tya
+    clc
+    adc LEVELDATA
+    sta LEVELDATA
+    lda LEVELDATA+1
+    adc #0
+    sta LEVELDATA+1
+    rts
+
+; scr0      scr1
+; ==================
+;   ____
+; |ABCDEF|  | ABCDE|
+; 
+; moveChunk2
+;   ____
+; |ABCDEF|  |BCDE  |
+; 
+; fillColumn2
+; swap
+;             ____
+; |ABCDEF|  |BCDE X|
+; 
+; moveChunk1
+;             ____
+; |CDEF  |  |BCDE X|
+; 
+; fillColumn1
+;             ____
+; |CDEF X|  |ABCDEX|
+
 work:
-    !for c, chunks {
-        !byte <(moveChunk2 + chrMoveAlign * (c-1)), >(moveChunk2 + chrMoveAlign * (c-1))
-    }
+    !word moveChunk2
+    !word moveChunk2 + chrMoveAlign * 1
+    !word moveChunk2 + chrMoveAlign * 2
+    !word moveChunk2 + chrMoveAlign * 3
+    !word fillColumn2
+    !word noWork
+    !word noWork
+    !word moveColorsAndSwap
 
-    !for c, (7 - chunks) {
-        !byte <colorsDone, >colorsDone
-    }
-
-    !byte <moveColorsAndSwap, >moveColorsAndSwap
-
-    !for c, chunks {
-        !byte <(moveChunk + chrMoveAlign * (c-1)), >(moveChunk + chrMoveAlign * (c-1))
-    }
-
-    !for c, (7 - chunks) {
-        !byte <colorsDone, >colorsDone
-    }
-
-    !byte <moveColorsAndSwap, >moveColorsAndSwap
+    !word moveChunk1
+    !word moveChunk1 + chrMoveAlign * 1
+    !word moveChunk1 + chrMoveAlign * 2
+    !word moveChunk1 + chrMoveAlign * 3
+    !word fillColumn1
+    !word bumpLevelPtr
+    !word noWork
+    !word moveColorsAndSwap
 endWork:
 
 copyBacking:
@@ -193,8 +255,6 @@ backingDone:
     rts
 
 debugg:
-    lda SCROLLWORKPTR
-    lsr
     clc
     adc #48
     cmp #48 + 10
@@ -202,8 +262,14 @@ debugg:
     sec
     sbc #57
 okNum:
-    sta scr0 + 40*24 + 2
-    sta scr1 + 40*24 + 2
+    sta scr0 + 40 * lines + 2, x
+    sta scr1 + 40 * lines + 2, x
     lda #1
-    sta colmem + 40*24 + 2
+    sta colmem + 40 * lines + 2, x
     rts
+
+level:
+    !byte 1, 2, 3, 4, 5, 6
+    !byte 1, 2, 3, 4, 5, 6
+    !byte 1, 2, 3, 4, 5, 6
+    !byte 1, 2, 3, 4, 5, 6
