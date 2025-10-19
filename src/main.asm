@@ -208,7 +208,7 @@ moveColors:
     ; Add new color column from level data
     ldy LEVELPOS
     !for r, .half  {
-        lda level + (r - 1) * levelWidth + 1,y
+        lda level + (r - 1) * levelWidth - 1,y
         sta colmem + (r - 1) * charsPerRow + (charsPerRow - 1)
     }
 
@@ -227,7 +227,7 @@ someColorsDone:
     ; Add new color column from level data
     ldy LEVELPOS
     !for r, .half  {
-        lda level + (r + .half - 1) * levelWidth + 1,y
+        lda level + (r + .half - 1) * levelWidth - 1,y
         sta colmem + (r + .half - 1) * charsPerRow + (charsPerRow - 1)
     }
 
@@ -339,8 +339,6 @@ level:
     !for r, lines  {
         !byte 0, 1, 2, 3, 4, 5
         !fill levelWidth - 6, 32
+        ;!byte 1,4,1,13, 32, 9,19, 32, 1, 32, 19,5,1,12, 32,32,32,32, 32,32
     }
-    !byte 1, 2, 3, 4, 5, 6
-    !byte 1, 2, 3, 4, 5, 6
-    !byte 1, 2, 3, 4, 5, 6
 levelEnd:
