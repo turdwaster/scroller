@@ -90,18 +90,29 @@ irq:
     ;lda #0
     ;sta DELAY
 
-    jsr skipandhop
-
-exitirq:
-    lda #0
-    sta $d020
-
     LDA #242
     STA $D012
     lda #<topIrq
     sta $0314
     lda #>irq
     sta $0315
+
+    jsr skipandhop
+
+exitirq:
+    lda #11
+    sta $d020
+
+    ; Display current scroll worker step while marking end-of-work raster line
+    lda SCROLLWORKPTR
+    sec
+    sbc #restart-work
+    lsr
+    ldx #0
+    jsr debugg
+
+    lda #0
+    sta $d020
     jmp $ea31
 
 skipandhop:
@@ -116,15 +127,6 @@ xOk:                    ; Set scroll x
     and #255-15
     ora SCROLLX
     sta $d016
-
-    lda SCROLLWORKPTR
-    lsr
-    ldx #0
-    jsr debugg
-    lda SCROLLWORKPTR
-    lsr
-    ldx #0
-    jsr debugg
 
     ldy SCROLLWORKPTR   ; Execute current scroll work item
     lda work,y
@@ -213,24 +215,46 @@ moveColorsAndSwap:
     sta $d018
 
 moveColors:
+    .half = lines/2
+
     ; Add new color column from level data
     ldy LEVELPOS
-    !for r, lines  {
+    !for r, .half  {
         lda level + (r - 1) * levelWidth + 1,y
         sta colmem + (r - 1) * charsPerRow + (charsPerRow - 1)
     }
 
     ldx #0
 colorNext:
-    !for r, lines  {
+    !for r, .half  {
         lda colmem + (r - 1) * charsPerRow + 1,x
         sta colmem + (r - 1) * charsPerRow,x
     }
     inx
     cpx #charsPerRow - 1
-    beq colorsDone
+    beq someColorsDone
     jmp colorNext
+
+someColorsDone:
+    ; Add new color column from level data
+    ldy LEVELPOS
+    !for r, .half  {
+        lda level + (r + .half - 1) * levelWidth + 1,y
+        sta colmem + (r + .half - 1) * charsPerRow + (charsPerRow - 1)
+    }
+
+    ldx #0
+colorNext2:
+    !for r, .half  {
+        lda colmem + (r + .half - 1) * charsPerRow + 1,x
+        sta colmem + (r + .half - 1) * charsPerRow,x
+    }
+    inx
+    cpx #charsPerRow - 1
+    beq colorsDone
+    jmp colorNext2
 colorsDone:
+
 noWork:
     rts
 
