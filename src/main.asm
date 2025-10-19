@@ -13,7 +13,6 @@ LEVELPOS = $fb
 SCROLLX = $fc
 SCROLLWORKPTR = $fd
 CHARBANK = $fe
-DELAY = $ff
 chrMoveAlign = 64
 
 *=$0801
@@ -26,7 +25,6 @@ main:
     sta SCROLLX
     lda #0
     sta SCROLLWORKPTR
-    sta DELAY
     lda #0
     sta LEVELPOS
     jsr copyBacking
@@ -45,7 +43,7 @@ install:
     lda #$01            ; enable raster interrupt only
     sta $d01a
 
-    LDA #249        ; set rasterline where interrupt shall occur (251 = start of lower border)
+    LDA #250        ; set rasterline where interrupt shall occur (251 = start of lower border)
     STA $D012           ; 53266
     lda #<irq           ; set IRQ vector low byte
     sta $0314
@@ -57,38 +55,28 @@ install:
 topIrq:
     lda #$01
     sta $d019
-    
-    ;lda $d018
-    ;and #15
-    ;ora #$10
-    ;sta $d018
 
     lda $d016
     and #255-15
     sta $d016
 
-    lda #2
-    sta $d020
-    LDA #249
+    lda #0
+    sta $d021
+    LDA #250
     STA $D012
     lda #<irq
     sta $0314
     lda #>irq
     sta $0315
-    jmp $ea31
+    jmp $ea81
 
 irq:
     lda #$01
     sta $d019
     lda #0
     sta $d020
-
-    ;inc DELAY
-    ;lda DELAY
-    ;cmp #20
-    ;bne exitirq
-    ;lda #0
-    ;sta DELAY
+    lda #6
+    sta $d021
 
     LDA #242
     STA $D012
@@ -100,8 +88,8 @@ irq:
     jsr skipandhop
 
 exitirq:
-    lda #11
-    sta $d020
+    ;lda #11
+    ;sta $d020
 
     ; Display current scroll worker step while marking end-of-work raster line
     lda SCROLLWORKPTR
@@ -113,7 +101,7 @@ exitirq:
 
     lda #0
     sta $d020
-    jmp $ea31
+    jmp $ea81
 
 skipandhop:
     dec SCROLLX         ; Move one pixel to the left
