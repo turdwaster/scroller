@@ -137,12 +137,12 @@ scrollWorkDone:
     rts
 
     !macro moveAChunk .scr,.c,.step {
-        .startChr = .scr + (.c - 1) * chunkSize
+        .startChr = .scr + .c * chunkSize
         ldx #0
 .chunkNext:
-        !for r, rowsPerChunk {
-            lda .startChr + (r - 1) * charsPerRow + .step,x
-            sta .startChr + (r - 1) * charsPerRow,x
+        !for r, 0, rowsPerChunk-1 {
+            lda .startChr + r * charsPerRow + .step,x
+            sta .startChr + r * charsPerRow,x
         }
         inx
         cpx #charsPerRow - .step
@@ -153,7 +153,7 @@ scrollWorkDone:
     }
 
 moveChunk1:
-    !for c, chunks {
+    !for c, 0, chunks-1 {
         !zone {
             .cstart = *
             +moveAChunk scr0, c, 2
@@ -165,7 +165,7 @@ moveChunk1:
     }
 
 moveChunk2:
-    !for c, chunks {
+    !for c, 0, chunks-1 {
         +moveAChunk scr1, c, 2
     }
 
@@ -179,20 +179,11 @@ moveColorsAndSwap:
     sta $d018
 
 moveColors:
-    .half = lines/2
-
-    ; Add new color column from level data
-    ldy LEVELPOS
-    !for r, .half  {
-        lda level + (r - 1) * levelWidth - 1,y
-        sta colmem + (r - 1) * charsPerRow + (charsPerRow - 1)
-    }
-
-    ldx #0
+    ldx #0 ; Move top half of color mem (beam chasing needed!)
 colorNext:
-    !for r, .half  {
-        lda colmem + (r - 1) * charsPerRow + 1,x
-        sta colmem + (r - 1) * charsPerRow,x
+    !for r, 0, lines/2-1  {
+        lda colmem + r * charsPerRow + 1,x
+        sta colmem + r * charsPerRow,x
     }
     inx
     cpx #charsPerRow - 1
@@ -200,48 +191,52 @@ colorNext:
     jmp colorNext
 
 someColorsDone:
-    ; Add new color column from level data
+    ; Add new color column from level data for top half
     ldy LEVELPOS
-    !for r, .half  {
-        lda level + (r + .half - 1) * levelWidth - 1,y
-        sta colmem + (r + .half - 1) * charsPerRow + (charsPerRow - 1)
+    !for r, 0, lines/2-1  {
+        lda level + r * levelWidth,y
+        sta colmem + r * charsPerRow + (charsPerRow - 1)
     }
-
-    ldx #0
+    ldx #0 ; Now do bottom half
 colorNext2:
-    !for r, .half  {
-        lda colmem + (r + .half - 1) * charsPerRow + 1,x
-        sta colmem + (r + .half - 1) * charsPerRow,x
+    !for r, lines/2, lines-1  {
+        lda colmem + r * charsPerRow + 1,x
+        sta colmem + r * charsPerRow,x
     }
     inx
     cpx #charsPerRow - 1
     beq colorsDone
     jmp colorNext2
 colorsDone:
+    ldy LEVELPOS
+    !for r, lines/2, lines-1  {
+        lda level + r * levelWidth,y
+        sta colmem + r * charsPerRow + (charsPerRow - 1)
+    }
     rts
 
 fillColumn1:
     ldy LEVELPOS
     .fillWidth = 2
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth + 0,y
-        sta scr0 + (r - 1) * charsPerRow + (charsPerRow - .fillWidth) + 0
+    !for r, 0, lines-1 {
+        lda level + r * levelWidth + 0,y
+        sta scr0 + r * charsPerRow + (charsPerRow - .fillWidth) + 0
     }
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth + 1,y
-        sta scr0 + (r - 1) * charsPerRow + (charsPerRow - .fillWidth) + 1
+    !for r, 0, lines-1 {
+        lda level + r * levelWidth + 1,y
+        sta scr0 + r * charsPerRow + (charsPerRow - .fillWidth) + 1
     }
     rts
 
 fillColumn2:
     ldy LEVELPOS
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth + 0,y
-        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - .fillWidth) + 0
+    !for r, 0, lines-1 {
+        lda level + r * levelWidth + 0,y
+        sta scr1 + r * charsPerRow + (charsPerRow - .fillWidth) + 0
     }
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth + 1,y
-        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - .fillWidth) + 1
+    !for r, 0, lines-1 {
+        lda level + r * levelWidth + 1,y
+        sta scr1 + r * charsPerRow + (charsPerRow - .fillWidth) + 1
     }
     rts
 
@@ -288,7 +283,7 @@ scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
 scrollWorkEnd:
 
 level:
-    !for r, lines  {
+    !for r, 0, lines-1 {
         !byte 0, 1, 2, 3, 4, 5
         !fill levelWidth - 6, 32
         ;!byte 1,4,1,13, 32, 9,19, 32, 1, 32, 19,5,1,12, 32,32,32,32, 32,32
@@ -301,9 +296,9 @@ copyBacking:
     ; Set back buffer to front shifted one char left (ABCDEF -> BCDEF-)
     ldx #charsPerRow-1
 backingNext:
-    !for r, lines  {
-        lda scr0 + (r - 1) * charsPerRow + 1,x
-        sta scr1 + (r - 1) * charsPerRow + 0,x
+    !for r, 0, lines-1 {
+        lda scr0 + r * charsPerRow + 1,x
+        sta scr1 + r * charsPerRow + 0,x
     }
     dex
     bmi backingDone
@@ -320,9 +315,9 @@ clearMore:
 
     ; Add first level column to back buffer (BCDEF- -> BCDEFX)
     ldy #0
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth,y
-        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - 1)
+    !for r, 0, lines-1 {
+        lda level + r * levelWidth,y
+        sta scr1 + r * charsPerRow + (charsPerRow - 1)
     }
     rts
 
