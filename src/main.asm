@@ -187,9 +187,7 @@ colorNext:
     }
     inx
     cpx #charsPerRow - 1
-    beq someColorsDone
-    jmp colorNext
-
+    bne colorNext
 someColorsDone:
     ; Add new color column from level data for top half
     ldy LEVELPOS
@@ -205,8 +203,7 @@ colorNext2:
     }
     inx
     cpx #charsPerRow - 1
-    beq colorsDone
-    jmp colorNext2
+    bne colorNext2
 colorsDone:
     ldy LEVELPOS
     !for r, lines/2, lines-1  {
