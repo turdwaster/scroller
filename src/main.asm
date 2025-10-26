@@ -8,11 +8,13 @@ chunks = 4
 rowsPerChunk = 6
 chunkSize = charsPerRow * rowsPerChunk
 
-; Bytes
-LEVELPOS = $fb
-SCROLLX = $fc
-SCROLLWORKPTR = $fd
-CHARBANK = $fe
+; Zero page
+LEVELPOS = $f9
+SCROLLX = $fa
+SCROLLWORKPTR = $fb
+CHARBANK = $fc
+zpTmp = $fe
+zpTmpHi = $ff
 
 *=$0801
 !byte $0c,$08,$b5,$07,$9e,$20,$32,$30,$36,$32,$00,$00,$00
@@ -115,14 +117,6 @@ xOk:                    ; Set scroll x
     ora SCROLLX
     sta $d016
 
-    ldy SCROLLWORKPTR   ; Execute current scroll preScrollWorkStart item
-    lda preScrollWorkStart,y
-    sta trampo + 1
-    lda preScrollWorkStart+1,y
-    sta trampo + 2
-trampo:
-    jsr 0
-    
     ldy SCROLLWORKPTR
     iny                 ; Skip to next preScrollWorkStart item
     iny
@@ -131,6 +125,15 @@ trampo:
     ldy #scrollWorkStart - preScrollWorkStart
 stillWorkToDo:
     sty SCROLLWORKPTR
+
+    ; Execute current scroll preScrollWorkStart item (jmp -> "our" rts)
+    lda preScrollWorkStart - 2 + 1,y ; -2 since predecremented, +1 since hi byte first
+    beq scrollWorkDone
+    sta zpTmpHi
+    lda preScrollWorkStart - 2 + 0,y
+    sta zpTmp
+    jmp (zpTmp)
+scrollWorkDone:
     rts
 
     !macro moveAChunk .scr,.c,.step {
@@ -215,8 +218,6 @@ colorNext2:
     beq colorsDone
     jmp colorNext2
 colorsDone:
-
-noWork:
     rts
 
 fillColumn1:
@@ -256,15 +257,14 @@ bumpLevelPtr:
     rts
 
 ; At start: copy + shift back buffer (LEVELPTR = X) and run preScrollWork
-
 preScrollWorkStart:
-    !word noWork ;                       [ABCDEF]    [BCDEFX]
-    !word noWork ;                          |           |
-    !word noWork ;                          |           |
-    !word noWork ;                          |           |
-    !word noWork ;                          |           |
-    !word noWork ;                          |           |
-    !word noWork ;                          |           |
+    !word 0 ;                            [ABCDEF]    [BCDEFX]
+    !word 0 ;                               |           |
+    !word 0 ;                               |           |
+    !word 0 ;                               |           |
+    !word 0 ;                               |           |
+    !word 0 ;                               |           |
+    !word 0 ;                               |           |
     !word moveColorsAndSwap ;            [ABCDEF] -> [BCDEFX]
 
 scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
@@ -274,7 +274,7 @@ scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
     !word moveChunk1 + moveChunkLen * 3 ;[CDEF--]       |
     !word fillColumn1 ;                  [CDEFXY]       |     (LVLPTR = X)
     !word bumpLevelPtr ;                     |          |     LVLPTR -> Y
-    !word noWork ;                           |          |
+    !word 0 ;                                |          |
     !word moveColorsAndSwap ;            [CDEFXY] <- [BCDEFX]
 ;                                            |          |
     !word moveChunk2 + moveChunkLen * 0 ;    |       [ .... ]
@@ -283,11 +283,10 @@ scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
     !word moveChunk2 + moveChunkLen * 3 ;    |       [DEFX--]
     !word fillColumn2 ;                      |       [DEFXYZ] (LVLPTR = Y)
     !word bumpLevelPtr ;                     |          |     LVLPTR -> Z
-    !word noWork ;                           |          |
+    !word 0 ;                                |          |
     !word moveColorsAndSwap ;            [CDEFXY] -> [DEFXYZ]
 scrollWorkEnd:
 
-    !align 255, 0
 level:
     !for r, lines  {
         !byte 0, 1, 2, 3, 4, 5
@@ -332,8 +331,7 @@ debugg:
     adc #48
     cmp #48 + 10
     bcc okNum
-    sec
-    sbc #57
+    sbc #57 ; Carry is already set here
 okNum:
     sta scr0 + 40 * lines + 2, x
     sta scr1 + 40 * lines + 2, x
