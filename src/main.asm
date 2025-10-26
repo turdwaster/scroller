@@ -13,7 +13,6 @@ LEVELPOS = $fb
 SCROLLX = $fc
 SCROLLWORKPTR = $fd
 CHARBANK = $fe
-chrMoveAlign = 64
 
 *=$0801
 !byte $0c,$08,$b5,$07,$9e,$20,$32,$30,$36,$32,$00,$00,$00
@@ -91,10 +90,10 @@ exitirq:
     ;lda #11
     ;sta $d020
 
-    ; Display current scroll worker step while marking end-of-work raster line
+    ; Display current scroll worker step while marking end-of-preScrollWorkStart raster line
     lda SCROLLWORKPTR
     sec
-    sbc #restart-work
+    sbc #scrollWorkStart-preScrollWorkStart
     lsr
     ldx #0
     jsr debugg
@@ -116,20 +115,20 @@ xOk:                    ; Set scroll x
     ora SCROLLX
     sta $d016
 
-    ldy SCROLLWORKPTR   ; Execute current scroll work item
-    lda work,y
+    ldy SCROLLWORKPTR   ; Execute current scroll preScrollWorkStart item
+    lda preScrollWorkStart,y
     sta trampo + 1
-    lda work+1,y
+    lda preScrollWorkStart+1,y
     sta trampo + 2
 trampo:
     jsr 0
     
     ldy SCROLLWORKPTR
-    iny                 ; Skip to next work item
+    iny                 ; Skip to next preScrollWorkStart item
     iny
-    cpy #endWork-work
+    cpy #scrollWorkEnd-preScrollWorkStart
     bne stillWorkToDo
-    ldy #restart - work
+    ldy #scrollWorkStart - preScrollWorkStart
 stillWorkToDo:
     sty SCROLLWORKPTR
     rts
@@ -150,48 +149,22 @@ stillWorkToDo:
         rts
     }
 
-    !align chrMoveAlign - 1, 0
-
 moveChunk1:
     !for c, chunks {
-        +moveAChunk scr0, c, 2
-        !align chrMoveAlign-1, 0
+        !zone {
+            .cstart = *
+            +moveAChunk scr0, c, 2
+            !if c = 1 {
+                ; Take first size of moveAChunk as shared size for all instances
+                moveChunkLen = (* - .cstart)
+            }
+        }
     }
 
 moveChunk2:
     !for c, chunks {
         +moveAChunk scr1, c, 2
-        !align chrMoveAlign-1, 0
     }
-
-copyBacking:
-    ; Set back buffer to front shifted one char left (ABCDEF -> BCDEF-)
-    ldx #charsPerRow-1
-backingNext:
-    !for r, lines  {
-        lda scr0 + (r - 1) * charsPerRow + 1,x
-        sta scr1 + (r - 1) * charsPerRow + 0,x
-    }
-    dex
-    bmi backingDone
-    jmp backingNext
-
-backingDone:
-    ; Clear bottom row
-    ldx #charsPerRow-1
-    lda #32
-clearMore:
-    sta scr1 + lines * charsPerRow,x
-    dex
-    bpl clearMore
-
-    ; Add first level column to back buffer (BCDEF- -> BCDEFX)
-    ldy #0
-    !for r, lines  {
-        lda level + (r - 1) * levelWidth,y
-        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - 1)
-    }
-    rts
 
 moveColorsAndSwap:
     lda CHARBANK        ; Swap frame scr0/scr1
@@ -282,43 +255,77 @@ bumpLevelPtr:
     sty LEVELPOS
     rts
 
-; Start = copy
-; |ABCDEF|  |ABCDEF|
+; At start: copy + shift back buffer (LEVELPTR = X) and run preScrollWork
 
-; Goal at first swap (LEVELPTR = Y)
-; |ABCDEF|  |BCDEFX|
+preScrollWorkStart:
+    !word noWork ;                       [ABCDEF]    [BCDEFX]
+    !word noWork ;                          |           |
+    !word noWork ;                          |           |
+    !word noWork ;                          |           |
+    !word noWork ;                          |           |
+    !word noWork ;                          |           |
+    !word noWork ;                          |           |
+    !word moveColorsAndSwap ;            [ABCDEF] -> [BCDEFX]
 
-;init = moveChunk2single, fillChunk2single
+scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
+    !word moveChunk1 + moveChunkLen * 0 ;[ .... ]       |
+    !word moveChunk1 + moveChunkLen * 1 ;[ .... ]       |
+    !word moveChunk1 + moveChunkLen * 2 ;[ .... ]       |
+    !word moveChunk1 + moveChunkLen * 3 ;[CDEF--]       |
+    !word fillColumn1 ;                  [CDEFXY]       |     (LVLPTR = X)
+    !word bumpLevelPtr ;                     |          |     LVLPTR -> Y
+    !word noWork ;                           |          |
+    !word moveColorsAndSwap ;            [CDEFXY] <- [BCDEFX]
+;                                            |          |
+    !word moveChunk2 + moveChunkLen * 0 ;    |       [ .... ]
+    !word moveChunk2 + moveChunkLen * 1 ;    |       [ .... ]
+    !word moveChunk2 + moveChunkLen * 2 ;    |       [ .... ]
+    !word moveChunk2 + moveChunkLen * 3 ;    |       [DEFX--]
+    !word fillColumn2 ;                      |       [DEFXYZ] (LVLPTR = Y)
+    !word bumpLevelPtr ;                     |          |     LVLPTR -> Z
+    !word noWork ;                           |          |
+    !word moveColorsAndSwap ;            [CDEFXY] -> [DEFXYZ]
+scrollWorkEnd:
 
-work:
-    !word noWork
-    !word noWork
-    !word noWork
-    !word noWork
-    !word noWork
-    !word noWork
-    !word noWork
-    !word moveColorsAndSwap
+    !align 255, 0
+level:
+    !for r, lines  {
+        !byte 0, 1, 2, 3, 4, 5
+        !fill levelWidth - 6, 32
+        ;!byte 1,4,1,13, 32, 9,19, 32, 1, 32, 19,5,1,12, 32,32,32,32, 32,32
+    }
+levelEnd:
 
-restart:
-    !word moveChunk1
-    !word moveChunk1 + chrMoveAlign * 1
-    !word moveChunk1 + chrMoveAlign * 2
-    !word moveChunk1 + chrMoveAlign * 3
-    !word fillColumn1
-    !word bumpLevelPtr
-    !word noWork
-    !word moveColorsAndSwap
+;;;;;;;;;;;;; Start out-of-line, cold code ;;;;;;;;;;;;;
 
-    !word moveChunk2
-    !word moveChunk2 + chrMoveAlign * 1
-    !word moveChunk2 + chrMoveAlign * 2
-    !word moveChunk2 + chrMoveAlign * 3
-    !word fillColumn2
-    !word bumpLevelPtr
-    !word noWork
-    !word moveColorsAndSwap
-endWork:
+copyBacking:
+    ; Set back buffer to front shifted one char left (ABCDEF -> BCDEF-)
+    ldx #charsPerRow-1
+backingNext:
+    !for r, lines  {
+        lda scr0 + (r - 1) * charsPerRow + 1,x
+        sta scr1 + (r - 1) * charsPerRow + 0,x
+    }
+    dex
+    bmi backingDone
+    jmp backingNext
+
+backingDone:
+    ; Clear bottom row
+    ldx #charsPerRow-1
+    lda #32
+clearMore:
+    sta scr1 + lines * charsPerRow,x
+    dex
+    bpl clearMore
+
+    ; Add first level column to back buffer (BCDEF- -> BCDEFX)
+    ldy #0
+    !for r, lines  {
+        lda level + (r - 1) * levelWidth,y
+        sta scr1 + (r - 1) * charsPerRow + (charsPerRow - 1)
+    }
+    rts
 
 debugg:
     clc
@@ -333,12 +340,3 @@ okNum:
     lda #1
     sta colmem + 40 * lines + 2, x
     rts
-
-    !align 255, 0
-level:
-    !for r, lines  {
-        !byte 0, 1, 2, 3, 4, 5
-        !fill levelWidth - 6, 32
-        ;!byte 1,4,1,13, 32, 9,19, 32, 1, 32, 19,5,1,12, 32,32,32,32, 32,32
-    }
-levelEnd:
