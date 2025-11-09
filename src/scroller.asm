@@ -2,13 +2,13 @@
 anim_y: 		!byte  0, 120, 10, 11, 12, 255
 anim_start: 	!byte  1,  67, 86, 86, 86
 anim_end:   	!byte  4,  71, 89, 89, 89    ; Index after last frame (D => loop 'ABC')
-anim_stepdelay: !byte  6, 24, 16, 16, 16
+anim_stepdelay: !byte  15, 24, 7, 7, 7
 
 rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 
 ; Calculated/mutated
-spawn_wait: 	!byte    0, 255,  15,  0,  0, 255 ; Relative to last spawn!
+spawn_wait: 	!byte    0, 5,  15,  0,  0, 255 ; Relative to last spawn!
 				!fill ANIMSLOTS-3, $e1
 spawn_x:		!fill ANIMSLOTS, $e3
 anim_stepwait:	!fill ANIMSLOTS, $e6
@@ -148,6 +148,33 @@ checkNextSlot:
 animsDone:
 	rts
 
+	; TODO: merge with swapAnimTarget!
+redrawWaitingCharAnims:
+	ldx activeAnim            ; X starts at first might-be-active animating entry
+
+drawNextAnimSlot:
+	; TODO: use loopwait < 0 as tombstone instead and skip loading spawn_x until needed later!
+	ldy spawn_x, X
+	bmi drawsDone        ; Neg. value => not spawned yet; end of active list
+
+	lda anim_stepwait, X       ; If not delayed, was redrawn in last animate call anyway
+	beq notWaiting
+
+	; Draw current frame char
+	lda anim_addr_lo, X
+	sta zpTmp
+	lda anim_addr_hi, X
+	sta zpTmpHi
+	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
+	sta (zpTmp), Y
+
+notWaiting:
+	inx
+	bne drawNextAnimSlot
+
+drawsDone:
+	rts
+
 swapAnimTarget:
 	ldx activeAnim            ; X starts at first might-be-active animating entry
 
@@ -179,6 +206,7 @@ animSwap:
 	;                 _
 	; [CDEFcY]    [DEFbYZ]
 
+	jsr redrawWaitingCharAnims
 	jsr animate
 	;                 _ 
 	; [CDEFcY]    [DEFbYZ]
