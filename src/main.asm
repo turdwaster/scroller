@@ -1,21 +1,3 @@
-scr0 = $0400
-scr1 = $2400
-colmem = $d800
-charsPerRow = 40
-levelWidth = 20
-lines = 24
-chunks = 4
-rowsPerChunk = 6
-chunkSize = charsPerRow * rowsPerChunk
-
-; Zero page
-LEVELPOS = $f9
-SCROLLX = $fa
-SCROLLWORKPTR = $fb
-CHARBANK = $fc
-zpTmp = $fe
-zpTmpHi = $ff
-
 *=$0801
 !byte $0c,$08,$b5,$07,$9e,$20,$32,$30,$36,$32,$00,$00,$00
 
@@ -29,7 +11,8 @@ main:
     lda #0
     sta LEVELPOS
     jsr copyBacking
-
+    jsr resetAnims
+    
 install:
     sei
     LDA #%01111111      ; switch off interrupt signals from CIA-1
@@ -100,6 +83,14 @@ exitirq:
     ldx #0
     jsr debugg
 
+    lda activeSpawn
+    ldx #2
+    jsr debugg
+
+    lda activeAnim
+    ldx #4
+    jsr debugg
+
     lda #0
     sta $d020
     jmp $ea81
@@ -125,7 +116,13 @@ xOk:                    ; Set scroll x
     ldy #scrollWorkStart - preScrollWorkStart
 stillWorkToDo:
     sty SCROLLWORKPTR
+    tya
+    and #15
+    beq skipAnimate
+    jsr animate
+    ldy SCROLLWORKPTR
 
+skipAnimate:
     ; Execute current scroll preScrollWorkStart item (jmp -> "our" rts)
     lda preScrollWorkStart - 2 + 1,y ; -2 since predecremented, +1 since hi byte first
     beq scrollWorkDone
@@ -256,7 +253,7 @@ preScrollWorkStart:
     !word 0 ;                               |           |
     !word 0 ;                               |           |
     !word 0 ;                               |           |
-    !word 0 ;                               |           |
+    !word animSwap ;                        |           |
     !word moveColorsAndSwap ;            [ABCDEF] -> [BCDEFX]
 
 scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
@@ -266,7 +263,7 @@ scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
     !word moveChunk1 + moveChunkLen * 3 ;[CDEF--]       |
     !word fillColumn1 ;                  [CDEFXY]       |     (LVLPTR = X)
     !word bumpLevelPtr ;                     |          |     LVLPTR -> Y
-    !word 0 ;                                |          |
+    !word animSwap ;                         |          |
     !word moveColorsAndSwap ;            [CDEFXY] <- [BCDEFX]
 ;                                            |          |
     !word moveChunk2 + moveChunkLen * 0 ;    |       [ .... ]
@@ -275,7 +272,7 @@ scrollWorkStart: ;                       [ABCDEF]    [BCDEFX]
     !word moveChunk2 + moveChunkLen * 3 ;    |       [DEFX--]
     !word fillColumn2 ;                      |       [DEFXYZ] (LVLPTR = Y)
     !word bumpLevelPtr ;                     |          |     LVLPTR -> Z
-    !word 0 ;                                |          |
+    !word animSwap ;                         |          |
     !word moveColorsAndSwap ;            [CDEFXY] -> [DEFXYZ]
 scrollWorkEnd:
 

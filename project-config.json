@@ -3,7 +3,9 @@
     "description": "Project Scroller",
     "toolkit": "acme",
     "sources": [
-        "src/main.asm"
+        "src/constants.asm",
+        "src/main.asm",
+        "src/scroller.asm"
     ],
     "build": "debug",
     "definitions": [],
