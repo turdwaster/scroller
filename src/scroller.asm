@@ -1,20 +1,20 @@
 ; Read-only structures
-anim_y: 		!byte   0,   0, 10, 11, 12, 255
-anim_start: 	!byte  86,  67, 86, 86, 86
-anim_end:   	!byte  89,  71, 89, 89, 89    ; Index after last frame (D => loop 'ABC')
-anim_loopdelay: !byte   0,   4,  0,  0,  0
+anim_y: 		!byte  0, 120, 10, 11, 12, 255
+anim_start: 	!byte  1,  67, 86, 86, 86
+anim_end:   	!byte  4,  71, 89, 89, 89    ; Index after last frame (D => loop 'ABC')
+anim_stepdelay: !byte  6, 24, 16, 16, 16
 
 rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 
 ; Calculated/mutated
-spawn_wait: 	!byte    0,   5,  15,  0,  0, 255 ; Relative to last spawn!
+spawn_wait: 	!byte    0, 255,  15,  0,  0, 255 ; Relative to last spawn!
 				!fill ANIMSLOTS-3, $e1
+spawn_x:		!fill ANIMSLOTS, $e3
+anim_stepwait:	!fill ANIMSLOTS, $e6
 anim_cur:		!fill ANIMSLOTS, $e2
-anim_x:			!fill ANIMSLOTS, $e3
 anim_addr_lo: 	!fill ANIMSLOTS, $e4
 anim_addr_hi: 	!fill ANIMSLOTS, $e5
-anim_loopwait:	!fill ANIMSLOTS, $e6
 
 ; ------------ Start of current @asm import ------------
 
@@ -33,7 +33,7 @@ shiftAnims:
 	ldx activeAnim
 
 findNextActiveAnim:
-	ldy anim_x, X
+	ldy spawn_x, X
 	bmi allShifted           ; x < 0: tombstone, end scan
 	bne shiftAnimLeft        ; x >= 0: still on screen and can be shifted right away
 	inx                               ; x == 0, so will go off screen now; bump active anim and try next
@@ -41,14 +41,14 @@ findNextActiveAnim:
 	bne findNextActiveAnim   ; Unconditional branch next (inx will be > 0)
 
 animCheckShiftable:
-	ldy anim_x, X
+	ldy spawn_x, X
 	bmi allShifted           ; Tombstone; passed last active animation; exit
 	; Can't put a tombstone on non-top anim since that ends the list, and can't move activeAnim either...
 
 shiftAnimLeft:
 	dey
 	tya
-	sta anim_x, X
+	sta spawn_x, X
 
 checkNextShift:
 	inx
@@ -87,8 +87,8 @@ spawnUnit:
 	sta zpTmpHi
 
 	; Place initial char at rightmost pos (in Y)
-	lda #charsPerRow - 1
-	sta anim_x, X
+	lda #(charsPerRow - 1)
+	sta spawn_x, X
 
 	; Plot initial char at this pos
 	tay
@@ -97,37 +97,36 @@ spawnUnit:
 	sta anim_cur, X
 
 	; Arm delay counter
-	lda anim_loopdelay, X
-	sta anim_loopwait, X
+	lda anim_stepdelay, X
+	sta anim_stepwait, X
 	rts
 
 animate:
-	ldx activeAnim       ; X starts at first might-be-active animating entry
+	ldx activeAnim            ; X starts at first might-be-active animating entry
 
 checkAnimSlot:
-	ldy anim_x, X
-	bmi animsDone    ; Neg. value => not spawned yet; end of active list
+	; TODO: use loopwait < 0 as tombstone instead and skip loading spawn_x until needed later!
+	ldy spawn_x, X
+	bmi animsDone        ; Neg. value => not spawned yet; end of active list
 
-	; Advance frame (i.e. char number)
-	; Get address of start of row in current frame
-	lda anim_cur, X
+	lda anim_stepwait, X       ; Delaying until next frame?
+	beq advanceFrame
+
+	sec                           ; Decrease next frame wait
+	sbc #1
+	sta anim_stepwait, X
+	bcs checkNextSlot    ; Still is waiting for next frame; check next entry
+
+advanceFrame:
+	lda anim_stepdelay, X      ; Reset frame delay
+	sta anim_stepwait, X
+
+	lda anim_cur, X            ; Get address of start of row in current frame
 	clc
 	adc #1
 	cmp anim_end, X
 	bne drawFrame
 
-	; Wait for restart (costly, reading current char each delay... store it in struct?)
-	lda anim_loopwait, X
-	beq animRestart
-	sec
-	sbc #1
-	sta anim_loopwait, X
-	bpl unitDone         ; Keep delaying restart while positive
-
-animRestart:
-	; Restart animation loop
-	lda anim_loopdelay, X      ; Arm loop delay
-	sta anim_loopwait, X
 	lda anim_start, X          ; Restart at first frame
 
 drawFrame:
@@ -141,26 +140,26 @@ drawFrame:
 	sta zpTmpHi
 	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
 	sta (zpTmp), Y
+
+checkNextSlot:
 	inx
 	bne checkAnimSlot
-
-unitDone:
-	inx
-	bne checkAnimSlot    ; Unconditionally check next entry
 
 animsDone:
 	rts
 
 swapAnimTarget:
-	ldx activeAnim       ; X starts at first might-be-active animating entry
+	ldx activeAnim            ; X starts at first might-be-active animating entry
+
 swapNextAnim:
-	lda anim_x, X
+	lda spawn_x, X
 	bmi swapAnimDone
 	lda anim_addr_hi, X
 	eor #charBufSwapBits
 	sta anim_addr_hi, X
 	inx
 	bne swapNextAnim
+
 swapAnimDone:
 	lda animateScrHi
 	eor #charBufSwapBits
@@ -168,32 +167,23 @@ swapAnimDone:
 	rts
 
 animSwap:
-	;__dumpAnimStates(1000);
-	;      _
-	; [CDEFbY]    [DEFbYZ]
-
-	jsr animate
+	; State after animate
 	;      _
 	; [CDEFcY]    [DEFbYZ]
-	;__dumpAnimStates(1001);
 
 	jsr swapAnimTarget
 	;                  _
 	; [CDEFcY]    [DEFbYZ]
-	;__dumpAnimStates(1002);
 
 	jsr shiftAnims
 	;                 _
 	; [CDEFcY]    [DEFbYZ]
-	;__dumpAnimStates(1003);
 
 	jsr animate
 	;                 _ 
 	; [CDEFcY]    [DEFbYZ]
-	;__dumpAnimStates(1004);
 
 	jsr spawnStuff
 	;                 _ s
 	; [CDEFcY]    [DEFbYp]
-	;__dumpAnimStates(1005);
 	rts
