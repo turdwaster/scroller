@@ -87,7 +87,7 @@ exitirq:
     ldx #2
     jsr debugg
 
-    lda anim_cur
+    lda anim_pc
     ldx #4
     jsr debugg
 

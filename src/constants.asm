@@ -27,3 +27,5 @@ zpTmpHi = $ff
 animateScrHi = $ea
 activeSpawn = $eb
 activeAnim = $ec
+continueFlag = $ed
+curPc = $ee

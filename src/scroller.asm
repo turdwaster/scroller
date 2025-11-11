@@ -1,20 +1,23 @@
 ; Read-only structures
-anim_y: 		!byte  0, 120, 10, 11, 12, 255
-anim_start: 	!byte  1,  67, 86, 86, 86
-anim_end:   	!byte  4,  71, 89, 89, 89    ; Index after last frame (D => loop 'ABC')
-anim_stepdelay: !byte  15, 24, 7, 7, 7
+anim_y: 		!byte  0,  0, 10, 11, 12, 255
+anim_stepdelay: !byte 15, 24,  7,  7,  7
+anim_firstInstr:!byte  1,  1,  1,  1,  0
+
+anim_instrs: 	!byte 170,  1,  1,  1, 256-3
+anim_operands: 	!byte  85, 86, 87, 88,     0
 
 rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 
 ; Calculated/mutated
-spawn_wait: 	!byte    0, 5,  15,  0,  0, 255 ; Relative to last spawn!
+spawn_wait: 	!byte  0, 5,  15,  0,  0, 255 ; Relative to last spawn!
 				!fill ANIMSLOTS-3, $e1
 spawn_x:		!fill ANIMSLOTS, $e3
 anim_stepwait:	!fill ANIMSLOTS, $e6
 anim_cur:		!fill ANIMSLOTS, $e2
 anim_addr_lo: 	!fill ANIMSLOTS, $e4
 anim_addr_hi: 	!fill ANIMSLOTS, $e5
+anim_pc:		!fill ANIMSLOTS, $e6
 
 ; ------------ Start of current @asm import ------------
 
@@ -65,6 +68,8 @@ checkSpawn:
 	bne noSpawnReady ; Active spawn wait count has not reached 0 yet; wait and exit
 
 	; Spawn wait count is zero - do spawn (could use trampoline here...!)
+	lda anim_firstInstr, X
+	sta anim_pc, X
 	jsr spawnUnit            ; Preserve or reload X!
 	inx                      ; Spawn done - move to next entry
 	bne checkSpawn  ; Unconditional branch to processing of next entry
@@ -80,21 +85,16 @@ spawnUnit:
 	ldy anim_y, X
 	lda rowStartLo, Y
 	sta anim_addr_lo, X
-	sta zpTmp
 	lda rowStartHi, Y
 	ora animateScrHi
 	sta anim_addr_hi, X
-	sta zpTmpHi
 
 	; Place initial char at rightmost pos (in Y)
 	lda #(charsPerRow - 1)
 	sta spawn_x, X
 
-	; Plot initial char at this pos
-	tay
-	lda anim_start, X
-	sta (zpTmp), Y
-	sta anim_cur, X
+	; Force first instruction (delay should be after instructions, not before them)
+	jsr runAnimTick
 
 	; Arm delay counter
 	lda anim_stepdelay, X
@@ -105,50 +105,88 @@ animate:
 	ldx activeAnim            ; X starts at first might-be-active animating entry
 
 checkAnimSlot:
-	; TODO: use loopwait < 0 as tombstone instead and skip loading spawn_x until needed later!
-	ldy spawn_x, X
+	lda spawn_x, X
 	bmi animsDone        ; Neg. value => not spawned yet; end of active list
 
 	lda anim_stepwait, X       ; Delaying until next frame?
-	beq advanceFrame
+	beq runFrame
 
 	sec                           ; Decrease next frame wait
 	sbc #1
 	sta anim_stepwait, X
 	bcs checkNextSlot    ; Still is waiting for next frame; check next entry
 
-advanceFrame:
+runFrame:
 	lda anim_stepdelay, X      ; Reset frame delay
 	sta anim_stepwait, X
-
-	lda anim_cur, X            ; Get address of start of row in current frame
-	clc
-	adc #1
-	cmp anim_end, X
-	bne drawFrame
-
-	lda anim_start, X          ; Restart at first frame
-
-drawFrame:
-	; Store updated frame/char index
-	sta anim_cur, X
-
-	; Draw updated frame
-	lda anim_addr_lo, X
-	sta zpTmp
-	lda anim_addr_hi, X
-	sta zpTmpHi
-	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
-	sta (zpTmp), Y
+	jsr runAnimTick
 
 checkNextSlot:
-	inx
+	inx                           ; X must be preserved!
 	bne checkAnimSlot
 
 animsDone:
 	rts
 
-	; TODO: merge with swapAnimTarget!
+	; X = anim slot index
+runAnimTick:
+	ldy anim_pc, X
+	beq noRun  ; Magic zero no-program-here instruction (will go away)
+
+runAnimInstr:
+	sty curPc                 ; Save PC to be able to update later
+	lda #0                         ; Clear continue-next-instr flag
+	sta continueFlag
+
+	lda anim_instrs, Y
+
+	beq nextAnimInstr  ; NOP instruction
+	bpl normalInstr
+
+	cmp #255 - 64
+	bcs reallyAJmp       ; Bit 7 set and bit 6 clear: flag that we should do next instr when done
+	and #63
+	sta continueFlag
+	bne normalInstr      ; Unconditionally execute as normal instruction
+
+reallyAJmp:
+	clc                           ; JMP instruction - update PC and do next instr
+	adc curPc
+	tay
+	bne runAnimInstr     ; Zero PC is special, so unconditional (zero jump = fall-thru)
+
+normalInstr:
+	; TODO: encode instrs as their branch offset
+	cmp #1
+	bne notSetFrame
+	lda anim_operands, Y
+	sta anim_cur, X            ; Store updated frame/char index
+
+	; Draw updated character
+	lda anim_addr_lo, X
+	sta zpTmp
+	lda anim_addr_hi, X
+	sta zpTmpHi
+	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
+	ldy spawn_x, X
+	sta (zpTmp), Y
+	clc
+	bcc nextAnimInstr
+
+notSetFrame:
+nextAnimInstr:
+	ldy curPc                 ; Processing done; skip to next instruction
+	iny
+	lda continueFlag
+	bne runAnimInstr     ; Continue-with-next flag set: do another instr
+
+	; Save PC for next tick and end execution of this slot
+	tya
+	sta anim_pc, X
+
+noRun:
+	rts
+
 redrawWaitingCharAnims:
 	ldx activeAnim            ; X starts at first might-be-active animating entry
 
@@ -196,22 +234,26 @@ swapAnimDone:
 animSwap:
 	; State after animate
 	;      _
-	; [CDEFcY]    [DEFbYZ]
+	; [CDEFcY]    [DEFcYZ]
 
+	; Swap, shift and redraw could be merged into a single horrible routine to save cycles, but this is clearer
 	jsr swapAnimTarget
 	;                  _
-	; [CDEFcY]    [DEFbYZ]
+	; [CDEFcY]    [DEFcYZ]
 
 	jsr shiftAnims
-	;                 _
-	; [CDEFcY]    [DEFbYZ]
+	;                 _          _
+	; [CDEFcY]    [DEFcYZ] / [DEF?YZ] (delayed)
 
 	jsr redrawWaitingCharAnims
+	;                 _          _
+	; [CDEFcY]    [DEFcYZ] / [DEFcYZ] (delayed)
+
 	jsr animate
-	;                 _ 
-	; [CDEFcY]    [DEFbYZ]
+	;                 _          _
+	; [CDEFcY]    [DEFcYZ] / [DEFbYZ] (delayed)
 
 	jsr spawnStuff
 	;                 _ s
-	; [CDEFcY]    [DEFbYp]
+	; [CDEFcY]    [DEFaYp]
 	rts
