@@ -1,7 +1,7 @@
 ; Read-only structures
-anim_y: 		!byte  0,  0, 10, 11, 12, 255
+anim_y: 		!byte  0,  1, 10, 11, 12, 255
 anim_stepdelay: !byte 15, 24,  7,  7,  7
-anim_firstInstr:!byte  1,  1,  1,  1,  0
+anim_firstInstr:!byte  1,  1,  1,  1,  1
 
 anim_instrs: 	!byte  0,  1,  1,  1, 256-3
 anim_operands: 	!byte  0, 86, 87, 88,     0
