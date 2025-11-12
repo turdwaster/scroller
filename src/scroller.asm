@@ -3,21 +3,22 @@ anim_y: 		!byte  0,  0, 10, 11, 12, 255
 anim_stepdelay: !byte 15, 24,  7,  7,  7
 anim_firstInstr:!byte  1,  1,  1,  1,  0
 
-anim_instrs: 	!byte 170,  1,  1,  1, 256-3
-anim_operands: 	!byte  85, 86, 87, 88,     0
+anim_instrs: 	!byte  0,  1,  1,  1, 256-3
+anim_operands: 	!byte  0, 86, 87, 88,     0
 
 rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 
 ; Calculated/mutated
-spawn_wait: 	!byte  0, 5,  15,  0,  0, 255 ; Relative to last spawn!
-				!fill ANIMSLOTS-3, $e1
-spawn_x:		!fill ANIMSLOTS, $e3
-anim_stepwait:	!fill ANIMSLOTS, $e6
-anim_cur:		!fill ANIMSLOTS, $e2
-anim_addr_lo: 	!fill ANIMSLOTS, $e4
-anim_addr_hi: 	!fill ANIMSLOTS, $e5
-anim_pc:		!fill ANIMSLOTS, $e6
+				!align ANIMSLOTS-1, 0, 0
+spawn_wait: 	!byte  0, 5,  15,  0,  0 ; Relative to last spawn!
+				!align ANIMSLOTS-1, 0, 255
+spawn_x:		!fill ANIMSLOTS, $e2
+anim_stepwait:	!fill ANIMSLOTS, $e3
+anim_cur:		!fill ANIMSLOTS, $e4
+anim_addr_lo: 	!fill ANIMSLOTS, $e5
+anim_addr_hi: 	!fill ANIMSLOTS, $e6
+anim_pc:		!fill ANIMSLOTS, $e7
 
 ; ------------ Start of current @asm import ------------
 
@@ -39,6 +40,9 @@ findNextActiveAnim:
 	ldy spawn_x, X
 	bmi allShifted           ; x < 0: tombstone, end scan
 	bne shiftAnimLeft        ; x >= 0: still on screen and can be shifted right away
+
+	lda #255
+	sta anim_stepwait, X           ; Mark as inactive (went off screen)
 	inx                               ; x == 0, so will go off screen now; bump active anim and try next
 	stx activeAnim
 	bne findNextActiveAnim   ; Unconditional branch next (inx will be > 0)
@@ -105,11 +109,9 @@ animate:
 	ldx activeAnim            ; X starts at first might-be-active animating entry
 
 checkAnimSlot:
-	lda spawn_x, X
-	bmi animsDone        ; Neg. value => not spawned yet; end of active list
-
 	lda anim_stepwait, X       ; Delaying until next frame?
 	beq runFrame
+	bmi animsDone        ; Neg. value => not spawned yet; end of active list
 
 	sec                           ; Decrease next frame wait
 	sbc #1
@@ -191,19 +193,17 @@ redrawWaitingCharAnims:
 	ldx activeAnim            ; X starts at first might-be-active animating entry
 
 drawNextAnimSlot:
-	; TODO: use loopwait < 0 as tombstone instead and skip loading spawn_x until needed later!
-	ldy spawn_x, X
+	lda anim_stepwait, X
+	beq notWaiting     ; If not delayed, was redrawn in last animate call anyway
 	bmi drawsDone        ; Neg. value => not spawned yet; end of active list
-
-	lda anim_stepwait, X       ; If not delayed, was redrawn in last animate call anyway
-	beq notWaiting
 
 	; Draw current frame char
 	lda anim_addr_lo, X
 	sta zpTmp
 	lda anim_addr_hi, X
 	sta zpTmpHi
-	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
+	lda anim_cur, X
+	ldy spawn_x, X
 	sta (zpTmp), Y
 
 notWaiting:

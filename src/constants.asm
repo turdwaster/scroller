@@ -13,7 +13,7 @@ rowsPerChunk = 6
 chunkSize = charsPerRow * rowsPerChunk
 
 ; Anim constants
-ANIMSLOTS = 8
+ANIMSLOTS = 16
 
 ; Scroller zero page
 LEVELPOS = $f9
