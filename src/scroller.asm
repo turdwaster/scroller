@@ -249,7 +249,7 @@ animSwap:
 	;                 _          _
 	; [CDEFcY]    [DEFcYZ] / [DEFcYZ] (delayed)
 
-	jsr animate
+	; jsr animate
 	;                 _          _
 	; [CDEFcY]    [DEFcYZ] / [DEFbYZ] (delayed)
 

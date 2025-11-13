@@ -8,8 +8,9 @@ main:
     sta SCROLLX
     lda #0
     sta SCROLLWORKPTR
-    lda #0
     sta LEVELPOS
+    lda #256-8        ; Start at -8 to be at zero after preScrollWork is finished
+    sta ANIMFRAME
     jsr copyBacking
     jsr resetAnims
     
@@ -96,6 +97,27 @@ exitirq:
     jmp $ea81
 
 skipandhop:
+    inc ANIMFRAME   ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
+    lda ANIMFRAME
+    and #1
+    beq skipAnimate
+    jsr animate
+
+skipAnimate:
+    lda $dc00
+    and #16
+    bne goAheadScroll
+
+    lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
+    beq goAheadScroll   ; Char anims were swapped in prev. step so force swap to match anim targets
+
+    lda $d016
+    and #255-15
+    ora SCROLLX
+    sta $d016
+    rts
+
+goAheadScroll:
     dec SCROLLX         ; Move one pixel to the left
     bpl xOk
 
@@ -116,13 +138,7 @@ xOk:                    ; Set scroll x
     ldy #scrollWorkStart - preScrollWorkStart
 stillWorkToDo:
     sty SCROLLWORKPTR
-    tya
-    and #15
-    beq skipAnimate
-    jsr animate
-    ldy SCROLLWORKPTR
 
-skipAnimate:
     ; Execute current scroll preScrollWorkStart item (jmp -> "our" rts)
     lda preScrollWorkStart - 2 + 1,y ; -2 since predecremented, +1 since hi byte first
     beq scrollWorkDone

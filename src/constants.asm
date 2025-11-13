@@ -16,6 +16,7 @@ chunkSize = charsPerRow * rowsPerChunk
 ANIMSLOTS = 16
 
 ; Scroller zero page
+ANIMFRAME = $f8
 LEVELPOS = $f9
 SCROLLX = $fa
 SCROLLWORKPTR = $fb
