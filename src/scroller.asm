@@ -194,7 +194,6 @@ redrawWaitingCharAnims:
 
 drawNextAnimSlot:
 	lda anim_stepwait, X
-	beq notWaiting     ; If not delayed, was redrawn in last animate call anyway
 	bmi drawsDone        ; Neg. value => not spawned yet; end of active list
 
 	; Draw current frame char
