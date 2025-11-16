@@ -1,17 +1,17 @@
 ; Read-only structures
-anim_y: 		!byte  0,  1, 10, 11, 12, 255
-anim_stepdelay: !byte 15, 24,  7,  7,  7
+anim_y:			!byte  0,  1,  2,  3,  4, 255
+anim_stepdelay: !byte  0,  1,  2,  3,  4
 anim_firstInstr:!byte  1,  1,  1,  1,  1
 
-anim_instrs: 	!byte  0,  1,  1,  1, 256-3
-anim_operands: 	!byte  0, 86, 87, 88,     0
+anim_instrs: 	!byte  0, 1, 1, 1, 256-3
+anim_operands: 	!byte  0, 1, 2, 3,     0
 
 rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 
 ; Calculated/mutated
 				!align ANIMSLOTS-1, 0, 0
-spawn_wait: 	!byte  0, 5,  15,  0,  0 ; Relative to last spawn!
+spawn_wait: 	!byte  0,  0,  0,  0,  0 ; Relative to last spawn!
 				!align ANIMSLOTS-1, 0, 255
 spawn_x:		!fill ANIMSLOTS, $e2
 anim_stepwait:	!fill ANIMSLOTS, $e3
@@ -205,7 +205,6 @@ drawNextAnimSlot:
 	ldy spawn_x, X
 	sta (zpTmp), Y
 
-notWaiting:
 	inx
 	bne drawNextAnimSlot
 
@@ -231,7 +230,7 @@ swapAnimDone:
 	rts
 
 animSwap:
-	; State after animate
+	; State at start
 	;      _
 	; [CDEFcY]    [DEFcYZ]
 
@@ -248,11 +247,7 @@ animSwap:
 	;                 _          _
 	; [CDEFcY]    [DEFcYZ] / [DEFcYZ] (delayed)
 
-	; jsr animate
-	;                 _          _
-	; [CDEFcY]    [DEFcYZ] / [DEFbYZ] (delayed)
-
 	jsr spawnStuff
 	;                 _ s
-	; [CDEFcY]    [DEFaYp]
+	; [CDEFcY]    [DEFcYp]
 	rts
