@@ -1,17 +1,23 @@
 ; Read-only structures
-anim_y:			!byte  0,  1,  2,  3,  4, 255
-anim_stepdelay: !byte  0,  1,  2,  3,  4
-anim_firstInstr:!byte  1,  1,  1,  1,  1
+anim_y:			!byte  0,  1,  2, 128 + 25, 255
+anim_stepdelay: !byte  25,  25,  25, 0
+anim_firstInstr:!byte  1,  6,  11, 0
 
-anim_instrs: 	!byte  0, 1, 1, 1, 256-3
-anim_operands: 	!byte  0, 1, 2, 3,     0
+anim_instrs: 	!byte 0, 65,2, 1,    0,    256-4
+				!byte       0, 65,2, 1,    256-4
+				!byte       1, 0,    65,2, 256-4
 
-rowStartLo:    !for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
-rowStartHi:    !for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
+anim_operands: 	!byte  0, 81,2, 32,    0,    0
+				!byte     0,   81,7,  32,    0
+				!byte     32,  0,   81,5,    0
+
+rowStartLo:    	!for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
+rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
+bitValues:		!byte 1, 2, 4, 8, 16, 32, 64, 128
 
 ; Calculated/mutated
 				!align ANIMSLOTS-1, 0, 0
-spawn_wait: 	!byte  0,  0,  0,  0,  0 ; Relative to last spawn!
+spawn_wait: 	!byte  0,  0,  0, 5 ; Relative to last spawn!
 				!align ANIMSLOTS-1, 0, 255
 spawn_x:		!fill ANIMSLOTS, $e2
 anim_stepwait:	!fill ANIMSLOTS, $e3
@@ -20,15 +26,25 @@ anim_addr_lo: 	!fill ANIMSLOTS, $e5
 anim_addr_hi: 	!fill ANIMSLOTS, $e6
 anim_pc:		!fill ANIMSLOTS, $e7
 
+sprite_flags:	!fill 16, $e8
+sprite_dx = sprite_flags + 1		
+
 ; ------------ Start of current @asm import ------------
 
 resetAnims:
 	lda #0
 	sta activeAnim
 	sta activeSpawn
+	sta freeSprite
+
+	ldx #15
+clearSprites:
+	sta sprite_flags, X
+	dex
+	bpl clearSprites
 
 	; Hi byte of visible/animated char segment
-	lda #(scr0 >> 8)
+	lda #scr0 >> 8
 	sta animateScrHi
 	rts
 
@@ -45,7 +61,7 @@ findNextActiveAnim:
 	sta anim_stepwait, X           ; Mark as inactive (went off screen)
 	inx                               ; x == 0, so will go off screen now; bump active anim and try next
 	stx activeAnim
-	bne findNextActiveAnim   ; Unconditional branch next (inx will be > 0)
+	jmp findNextActiveAnim
 
 animCheckShiftable:
 	ldy spawn_x, X
@@ -59,7 +75,7 @@ shiftAnimLeft:
 
 checkNextShift:
 	inx
-	bne animCheckShiftable   ; Unconditionally check next
+	jmp animCheckShiftable
 
 allShifted:
 	rts
@@ -76,7 +92,7 @@ checkSpawn:
 	sta anim_pc, X
 	jsr spawnUnit            ; Preserve or reload X!
 	inx                      ; Spawn done - move to next entry
-	bne checkSpawn  ; Unconditional branch to processing of next entry
+	jmp checkSpawn    ; Go to processing of next entry
 
 noSpawnReady:
 	dec spawn_wait, X     ; Waiting - tick active spawn wait time down
@@ -85,8 +101,55 @@ noSpawnReady:
 
 	; X holds index in spawn structure
 spawnUnit:
-	; Init char row offset and calculate char cell address (Y is rows from top)
-	ldy anim_y, X
+	lda anim_y, X
+	bpl spawnChar
+
+	and #127                   ; Extract Y pos stored as (y/2 | 128) and stow it away
+	asl
+	sta zpTmp
+
+	ldy freeSprite        ; Get free index
+
+	lda #123
+	sta scr0 + 1016, Y     ; Sprite pointer = VIC bank start + acc. * 64
+	sta scr1 + 1016, Y     ; Set it for both char screens since it moves...
+
+	lda $d010             ; Set x MSB
+	ora bitValues, Y
+	sta $d010
+
+	lda #13
+	sta $d027, Y          ; Set color
+
+	lda $d015
+	ora bitValues, Y
+	sta $d015             ; Update enable register
+
+	; ---- From here do all values stored at sprite index * 2 by using doubled Y ----
+	tya
+	asl
+	tay
+
+	lda zpTmp
+	sta $d001, Y          ; Sprite y position
+
+	lda #56                    ; x = 256 + 56 = 312; glued to right border (31 = against left border)
+	sta $d000, Y          ; Sprite x low
+
+	lda #1
+	sta sprite_flags, Y
+
+	lda #255
+	sta sprite_dx, Y
+
+	dec freeSprite        ; Allocate and bump
+	bpl doInitialRun
+	lda #7
+	sta freeSprite
+	jmp doInitialRun   ; Immediately run first anim step
+
+spawnChar:
+	tay
 	lda rowStartLo, Y
 	sta anim_addr_lo, X
 	lda rowStartHi, Y
@@ -97,6 +160,7 @@ spawnUnit:
 	lda #(charsPerRow - 1)
 	sta spawn_x, X
 
+doInitialRun:
 	; Force first instruction (delay should be after instructions, not before them)
 	jsr runAnimTick
 
@@ -133,7 +197,7 @@ animsDone:
 	; X = anim slot index
 runAnimTick:
 	ldy anim_pc, X
-	beq noRun  ; Magic zero no-program-here instruction (will go away)
+	beq noRun          ; Magic zero end-of-program PC (jump here and stay here...)
 
 runAnimInstr:
 	sty curPc                 ; Save PC to be able to update later
@@ -141,26 +205,33 @@ runAnimInstr:
 	sta continueFlag
 
 	lda anim_instrs, Y
+	bpl noJump
 
-	beq nextAnimInstr  ; NOP instruction
-	bpl normalInstr
-
-	cmp #255 - 64
-	bcs reallyAJmp       ; Bit 7 set and bit 6 clear: flag that we should do next instr when done
-	and #63
-	sta continueFlag
-	bne normalInstr      ; Unconditionally execute as normal instruction
-
-reallyAJmp:
 	clc                           ; JMP instruction - update PC and do next instr
 	adc curPc
 	tay
-	bne runAnimInstr     ; Zero PC is special, so unconditional (zero jump = fall-thru)
+	jmp runAnimInstr
 
-normalInstr:
+noJump:
+	cmp #64                        ; Check for continuation flag
+	bcc execInstr
+	and #63
+	sta continueFlag
+	cmp #0                          ; Restore N/Z flags for execInstr
+
+execInstr:
 	; TODO: encode instrs as their branch offset
+	beq doNop
 	cmp #1
-	bne notSetFrame
+	beq doSetFrame
+	cmp #2
+	beq doSetCol
+	bne unknownInstr
+
+doNop:
+	beq nextAnimInstr
+
+doSetFrame:
 	lda anim_operands, Y
 	sta anim_cur, X            ; Store updated frame/char index
 
@@ -172,10 +243,22 @@ normalInstr:
 	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
 	ldy spawn_x, X
 	sta (zpTmp), Y
-	clc
-	bcc nextAnimInstr
+	jmp nextAnimInstr
 
-notSetFrame:
+doSetCol:
+	lda anim_addr_lo, X
+	sta zpTmp
+	lda anim_addr_hi, X
+	and #$03
+	ora #$d8
+	sta zpTmpHi
+
+	lda anim_operands, Y
+	ldy spawn_x, X
+	sta (zpTmp), Y
+	jmp nextAnimInstr
+
+unknownInstr:
 nextAnimInstr:
 	ldy curPc                 ; Processing done; skip to next instruction
 	iny
@@ -250,4 +333,42 @@ animSwap:
 	jsr spawnStuff
 	;                 _ s
 	; [CDEFcY]    [DEFcYp]
+	rts
+
+moveSprites:
+	ldx #0
+
+moveNextSprite:
+	lda sprite_flags, X
+	beq spriteMoveDone
+
+	lda sprite_dx, X
+	beq spriteMoveDone
+
+	clc
+	bmi moveLeft
+
+	adc $d000, X
+	sta $d000, X
+	bcc spriteMoveDone
+	jmp flipMSB
+
+moveLeft:
+	adc $d000, X
+	sta $d000, X
+	bcs spriteMoveDone
+
+flipMSB:
+	txa                   ; TODO: something better?
+	lsr
+	tay
+	lda bitValues, Y
+	eor $d010         ; Could use a zp temp and store d010 at the end instead
+	sta $d010
+
+spriteMoveDone:
+	inx
+	inx
+	cpx #16
+	bne moveNextSprite
 	rts

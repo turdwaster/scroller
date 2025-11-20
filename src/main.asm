@@ -97,6 +97,8 @@ exitirq:
     jmp $ea81
 
 skipandhop:
+    jsr moveSprites
+
     inc ANIMFRAME   ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
     lda ANIMFRAME
     and #1
