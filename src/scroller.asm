@@ -1,7 +1,7 @@
 ; Read-only structures
-anim_y:			!byte  0,  1,  2, 128 + 25, 255
+anim_y:			!byte  0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
 anim_stepdelay: !byte  25,  25,  25, 0
-anim_firstInstr:!byte  1,  6,  11, 0
+anim_firstInstr:!byte  1,  6,  11, 0, 0, 0, 0
 
 anim_instrs: 	!byte 0, 65,2, 1,    0,    256-4
 				!byte       0, 65,2, 1,    256-4
@@ -17,7 +17,7 @@ bitValues:		!byte 1, 2, 4, 8, 16, 32, 64, 128
 
 ; Calculated/mutated
 				!align ANIMSLOTS-1, 0, 0
-spawn_wait: 	!byte  0,  0,  0, 5 ; Relative to last spawn!
+spawn_wait: 	!byte  0,  0,  0, 5, 2, 2, 2 ; Relative to last spawn!
 				!align ANIMSLOTS-1, 0, 255
 spawn_x:		!fill ANIMSLOTS, $e2
 anim_stepwait:	!fill ANIMSLOTS, $e3
@@ -360,12 +360,32 @@ moveLeft:
 	sta $d000, X
 	bcs spriteMoveDone
 
-flipMSB:
-	txa                   ; TODO: something better?
+	txa                       ; Get bit value for current sprite in Y - awful; optimize
 	lsr
 	tay
 	lda bitValues, Y
-	eor $d010         ; Could use a zp temp and store d010 at the end instead
+	tay                       ; Save "our" bit for reuse
+
+	; If MSB = 0, speed negative and about to flip: going off screen => disable?
+	; At this point: about to flip = true; speed neg = true, so check MSB.
+	and $d010             ; Could use a zp temp and store d010 at the end instead
+	bne writeMSB     ; MSB set so still at x > 0 (and < 256)
+
+	sta sprite_flags, X    ; Disable movement and hide sprite (A is zero from prev. AND)
+	tya
+	eor $d015
+	sta $d015
+	tya
+	jmp writeMSB
+
+flipMSB:
+	txa                       ; TODO: something better?
+	lsr
+	tay
+	lda bitValues, Y
+
+writeMSB:
+	eor $d010             ; Could use a zp temp and store d010 at the end instead
 	sta $d010
 
 spriteMoveDone:
