@@ -133,13 +133,13 @@ spawnUnit:
 	lda zpTmp
 	sta $d001, Y          ; Sprite y position
 
-	lda #56                    ; x = 256 + 56 = 312; glued to right border (31 = against left border)
+	lda #56+24                    ; x = 256 + 56 = 312; glued to right border (31 = against left border)
 	sta $d000, Y          ; Sprite x low
 
 	lda #1
 	sta sprite_flags, Y
 
-	lda #255
+	lda #0
 	sta sprite_dx, Y
 
 	dec freeSprite        ; Allocate and bump
@@ -343,6 +343,8 @@ moveNextSprite:
 	beq spriteMoveDone
 
 	lda sprite_dx, X
+	clc
+	adc scrollSpeed
 	beq spriteMoveDone
 
 	clc

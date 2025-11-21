@@ -97,26 +97,35 @@ exitirq:
     jmp $ea81
 
 skipandhop:
+    ldx #255           ; Assume scrolling left: X = scrollSpeed = -1 px/frame
+    lda $dc00
+    and #16
+    bne shouldScroll
+
+    lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
+    beq shouldScroll    ; Char anims were swapped in prev. step so force swap to match anim targets
+
+    lda $d016           ; Not scrolling; set X shift and clear scroll speed
+    and #255-15
+    ora SCROLLX
+    sta $d016
+    ldx #0
+
+shouldScroll:
+    stx scrollSpeed
+
+doMovement:
     jsr moveSprites
 
-    inc ANIMFRAME   ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
+    inc ANIMFRAME       ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
     lda ANIMFRAME
     and #1
     beq skipAnimate
     jsr animate
 
 skipAnimate:
-    lda $dc00
-    and #16
+    lda scrollSpeed
     bne goAheadScroll
-
-    lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
-    beq goAheadScroll   ; Char anims were swapped in prev. step so force swap to match anim targets
-
-    lda $d016
-    and #255-15
-    ora SCROLLX
-    sta $d016
     rts
 
 goAheadScroll:
