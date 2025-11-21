@@ -14,6 +14,7 @@ chunkSize = charsPerRow * rowsPerChunk
 
 ; Anim constants
 ANIMSLOTS = 16
+XStartRight = 256 + 56 + 24
 
 ; Scroller zero page
 ANIMFRAME = $f7

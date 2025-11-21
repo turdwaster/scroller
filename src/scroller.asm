@@ -133,7 +133,7 @@ spawnUnit:
 	lda zpTmp
 	sta $d001, Y          ; Sprite y position
 
-	lda #56+24                    ; x = 256 + 56 = 312; glued to right border (31 = against left border)
+	lda #XStartRight & 255 ; x = 256 + 56 = 312; glued to right border (31 = against left border)
 	sta $d000, Y          ; Sprite x low
 
 	lda #1
@@ -345,10 +345,10 @@ moveNextSprite:
 	lda sprite_dx, X
 	clc
 	adc scrollSpeed
-	beq spriteMoveDone
+	beq spriteMoveDone ; Resulting speed is zero; no change
 
 	clc
-	bmi moveLeft
+	bmi moveLeft         ; Speed is negative; treat overflow for x MSB backwards
 
 	adc $d000, X
 	sta $d000, X
