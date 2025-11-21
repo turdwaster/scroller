@@ -1,15 +1,19 @@
 ; Read-only structures
-anim_y:			!byte  0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
-anim_stepdelay: !byte  25,  25,  25, 0
-anim_firstInstr:!byte  1,  6,  11, 0, 0, 0, 0
+anim_y:			!byte   0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
+anim_stepdelay: !byte  25, 25, 25, 2, 4, 6, 8
+anim_firstInstr:!byte   1,  6, 11,  springy,  springy,  springy,  springy
 
-anim_instrs: 	!byte 0, 65,2, 1,    0,    256-4
-				!byte       0, 65,2, 1,    256-4
-				!byte       1, 0,    65,2, 256-4
+anim_instrs: 	!byte  0, 65,2, 1,    0,    256-4
+				!byte  0, 65,2, 1,    256-4
+				!byte  1, 0,    65,2, 256-4
+sprprg:			!byte 3, 3, 3, 3, 3, 3, 3, 3, 256-8
+
+springy = sprprg - anim_instrs
 
 anim_operands: 	!byte  0, 81,2, 32,    0,    0
-				!byte     0,   81,7,  32,    0
-				!byte     32,  0,   81,5,    0
+				!byte  0, 81,7, 32,    0
+				!byte 32,    0, 81,5,  0
+				!byte 0, 255, 254, 255, 0, 1, 2, 1
 
 rowStartLo:    	!for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
 rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
@@ -17,7 +21,7 @@ bitValues:		!byte 1, 2, 4, 8, 16, 32, 64, 128
 
 ; Calculated/mutated
 				!align ANIMSLOTS-1, 0, 0
-spawn_wait: 	!byte  0,  0,  0, 5, 2, 2, 2 ; Relative to last spawn!
+spawn_wait: 	!byte  0,  0,  0, 5, 2, 0, 0 ; Relative to last spawn!
 				!align ANIMSLOTS-1, 0, 255
 spawn_x:		!fill ANIMSLOTS, $e2
 anim_stepwait:	!fill ANIMSLOTS, $e3
@@ -27,7 +31,9 @@ anim_addr_hi: 	!fill ANIMSLOTS, $e6
 anim_pc:		!fill ANIMSLOTS, $e7
 
 sprite_flags:	!fill 16, $e8
-sprite_dx = sprite_flags + 1		
+sprite_dx:		!fill 16, $e8
+sprite_dy = sprite_dx + 1
+anim_sprite_idx = anim_addr_lo
 
 ; ------------ Start of current @asm import ------------
 
@@ -101,7 +107,7 @@ noSpawnReady:
 
 	; X holds index in spawn structure
 spawnUnit:
-	lda anim_y, X
+	lda anim_y, X          ; Neg. y = sprite
 	bpl spawnChar
 
 	and #127                   ; Extract Y pos stored as (y/2 | 128) and stow it away
@@ -110,7 +116,7 @@ spawnUnit:
 
 	ldy freeSprite        ; Get free index
 
-	lda #123
+	lda #balloon / 64
 	sta scr0 + 1016, Y     ; Sprite pointer = VIC bank start + acc. * 64
 	sta scr1 + 1016, Y     ; Set it for both char screens since it moves...
 
@@ -133,14 +139,18 @@ spawnUnit:
 	lda zpTmp
 	sta $d001, Y          ; Sprite y position
 
-	lda #XStartRight & 255 ; x = 256 + 56 = 312; glued to right border (31 = against left border)
+	lda #XStartRight & 255
 	sta $d000, Y          ; Sprite x low
 
 	lda #1
-	sta sprite_flags, Y
+	sta sprite_flags, Y    ; Enable movement
 
-	lda #0
+	lda #0                     ; Initial speed
 	sta sprite_dx, Y
+	sta sprite_dy, Y
+
+	tya                       ; Save sprite index * 2
+	sta anim_sprite_idx, X
 
 	dec freeSprite        ; Allocate and bump
 	bpl doInitialRun
@@ -197,7 +207,8 @@ animsDone:
 	; X = anim slot index
 runAnimTick:
 	ldy anim_pc, X
-	beq noRun          ; Magic zero end-of-program PC (jump here and stay here...)
+	bne runAnimInstr          ; Magic zero end-of-program PC (jump here and stay here...)
+	rts
 
 runAnimInstr:
 	sty curPc                 ; Save PC to be able to update later
@@ -209,7 +220,9 @@ runAnimInstr:
 
 	clc                           ; JMP instruction - update PC and do next instr
 	adc curPc
-	tay
+	beq updatePc       ; END instruction; store PC and bail
+
+	tay                           ; Immediately run next instruction
 	jmp runAnimInstr
 
 noJump:
@@ -217,19 +230,24 @@ noJump:
 	bcc execInstr
 	and #63
 	sta continueFlag
-	cmp #0                          ; Restore N/Z flags for execInstr
 
 execInstr:
 	; TODO: encode instrs as their branch offset
+	cmp #0
 	beq doNop
 	cmp #1
 	beq doSetFrame
 	cmp #2
 	beq doSetCol
-	bne unknownInstr
+	cmp #3
+	beq doSetSpeedX
+	cmp #4
+	beq doSetSpeedY
+
+	jmp noRun
 
 doNop:
-	beq nextAnimInstr
+	jmp nextAnimInstr
 
 doSetFrame:
 	lda anim_operands, Y
@@ -258,16 +276,30 @@ doSetCol:
 	sta (zpTmp), Y
 	jmp nextAnimInstr
 
-unknownInstr:
+doSetSpeedX:
+	lda anim_operands, Y       ; Stow new speed operand
+	ldy anim_sprite_idx, X
+	sta sprite_dx, Y
+	jmp nextAnimInstr
+
+doSetSpeedY:
+	lda anim_operands, Y       ; Stow new speed operand
+	ldy anim_sprite_idx, X
+	sta sprite_dy, Y
+	jmp nextAnimInstr
+
 nextAnimInstr:
 	ldy curPc                 ; Processing done; skip to next instruction
 	iny
 	lda continueFlag
-	bne runAnimInstr     ; Continue-with-next flag set: do another instr
+	beq execDone     ; Continue-with-next flag set: do another instr
+	jmp runAnimInstr
 
-	; Save PC for next tick and end execution of this slot
+execDone:
 	tya
-	sta anim_pc, X
+
+updatePc:
+	sta anim_pc, X         ; Save PC for next tick and end execution of this slot
 
 noRun:
 	rts
@@ -394,3 +426,15 @@ spriteMoveDone:
 	cpx #16
 	bne moveNextSprite
 	rts
+	
+	* = $2000
+balloon:
+	!byte 0,127,0,1,255,192,3,255
+	!byte 224,3,231,224,7,217,240
+	!byte 7,223,240
+	!byte 7,217,240,3,231,224,3,255
+	!byte 224,3,255,224,2,255,160
+	!byte 1,127,64,1,62,64,0,156
+	!byte 128,0,156,128,0,73,0,0
+	!byte 73,0,0,62,0,0,62,0,0,62
+	!byte 0,0,28,0
