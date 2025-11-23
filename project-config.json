@@ -5,7 +5,8 @@
     "sources": [
         "src/constants.asm",
         "src/main.asm",
-        "src/scroller.asm"
+        "src/scroller.asm",
+        "src/animdata.asm"
     ],
     "build": "debug",
     "definitions": [],
