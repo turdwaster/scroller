@@ -1,7 +1,18 @@
-; Read-only structures
+; Nice to haves
+rowStartLo:    	!for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
+rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
+bitValues:		!byte 1, 2, 4, 8, 16, 32, 64, 128
+
+; Read-only anim structure, interleaved by ANIMSLOTS
+spawn_wait: 	!byte  5,  0,  0,  15,  5,  5,  5 ; Relative to last spawn!
+				!align ANIMSLOTS-1, 0, 255
 anim_y:			!byte   0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
+				!align ANIMSLOTS-1, 0, 0
 anim_stepdelay: !byte  25, 25, 25, 2, 4, 6, 8
+				!align ANIMSLOTS-1, 0, 0
 anim_firstInstr:!byte   1,  6, 11,  springy,  springy,  springy,  springy
+
+; Instructions
 
 anim_instrs: 	!byte  0, 65,2, 1,    0,    256-4
 				!byte  0, 65,2, 1,    256-4
@@ -15,14 +26,7 @@ anim_operands: 	!byte  0, 81,2, 32,    0,    0
 				!byte 32,    0, 81,5,  0
 				!byte 0, 255, 254, 255, 0, 1, 2, 1
 
-rowStartLo:    	!for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
-rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
-bitValues:		!byte 1, 2, 4, 8, 16, 32, 64, 128
-
 ; Calculated/mutated
-				!align ANIMSLOTS-1, 0, 0
-spawn_wait: 	!byte  0,  0,  0, 0, 0, 0, 0 ; Relative to last spawn!
-				!align ANIMSLOTS-1, 0, 255
 spawn_x:		!fill ANIMSLOTS, $e2
 anim_stepwait:	!fill ANIMSLOTS, $e3
 anim_cur:		!fill ANIMSLOTS, $e4
