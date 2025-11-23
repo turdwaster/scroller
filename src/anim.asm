@@ -13,6 +13,14 @@ clearSprites:
 	; Hi byte of visible/animated char segment
 	lda #scr0 >> 8
 	sta animateScrHi
+
+	lda #1
+	ldx #0
+setBitValues:
+	sta bitValues, X
+	inx
+	asl
+	bne setBitValues
 	rts
 
 	; Called *after* screen is completely scroll-shifted since it assumes that content has moved left already
@@ -329,7 +337,7 @@ animSwap:
 	rts
 
 moveSprites:
-	ldx #0
+	ldx #14
 
 moveNextSprite:
 	lda sprite_flags, X
@@ -353,10 +361,7 @@ moveLeft:
 	sta $d000, X
 	bcs spriteMoveDone
 
-	txa                       ; Get bit value for current sprite in Y - awful; optimize
-	lsr
-	tay
-	lda bitValues, Y
+	lda bitValuesX2, X     ; Get bit value for current sprite
 	tay                       ; Save "our" bit for reuse
 
 	; If MSB = 0, speed negative and about to flip: going off screen => disable?
@@ -368,22 +373,16 @@ moveLeft:
 	tya
 	eor $d015
 	sta $d015
-	tya
-	jmp writeMSB
 
 flipMSB:
-	txa                       ; TODO: something better?
-	lsr
-	tay
-	lda bitValues, Y
+	lda bitValuesX2, X     ; Get bit value for current sprite
 
 writeMSB:
 	eor $d010             ; Could use a zp temp and store d010 at the end instead
 	sta $d010
 
 spriteMoveDone:
-	inx
-	inx
-	cpx #16
-	bne moveNextSprite
+	dex
+	dex
+	bpl moveNextSprite
 	rts

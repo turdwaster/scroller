@@ -27,6 +27,7 @@ zpTmp = $fe
 zpTmpHi = $ff
 
 ; Anim zero page
+bitValues = $e0 ; - $e7
 freeSprite = $e9
 animateScrHi = $ea
 activeSpawn = $eb
