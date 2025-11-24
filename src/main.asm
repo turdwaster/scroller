@@ -38,8 +38,7 @@ install:
     rts
 
 topIrq:
-    lda #$01
-    sta $d019
+    lsr $d019           ; Raster interrupt <=> C = 1
 
     lda $d016
     and #255-15
@@ -51,8 +50,8 @@ topIrq:
     STA $D012
     lda #<irq
     sta $0314
-    lda #>irq
-    sta $0315
+    ;lda #>irq          ; Assuming same page
+    ;sta $0315
     jmp $ea81
 
 irq:
@@ -67,9 +66,8 @@ irq:
     STA $D012
     lda #<topIrq
     sta $0314
-    lda #>irq
-    sta $0315
-
+    ;lda #>topIrq          ; Assuming same page
+    ;sta $0315
     jsr skipandhop
 
 exitirq:
