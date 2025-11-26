@@ -4,13 +4,17 @@ rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
 bitValuesX2:	!byte 1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64, 128, 128
 
 ; Read-only anim structure, interleaved by ANIMSLOTS
-spawn_wait: 	!byte   5,  0,  0,  15,  5,  5,  5 ; Relative to last spawn!
+spawn_wait: 	!byte  0
+				!byte  5,  0,  0,  15,  5,  5,  5 ; Relative to last spawn!
 				!align ANIMSLOTS-1, 0, 255
-anim_y:			!byte   0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
+anim_y:			!byte  50 | 128
+				!byte  0,  1,  2, 128 + 25, 128 + 50 , 128 + 75, 128 + 100, 255
 				!align ANIMSLOTS-1, 0, 0
-anim_stepdelay: !byte  25, 25, 25, 2, 4, 6, 8
+anim_stepdelay: !byte  0
+				!byte  25, 25, 25, 2, 4, 6, 8
 				!align ANIMSLOTS-1, 0, 0
-anim_firstInstr:!byte   1,  6, 11,  springy,  springy,  springy,  springy
+anim_firstInstr:!byte  0
+				!byte  1,  6, 11,  springy,  springy,  springy,  springy
 
 ; Instructions
 
@@ -18,7 +22,7 @@ anim_instrs:	!byte 0
  				!byte 65,2, 1,    0,    256-4
 				!byte  1, 	65,2, 1,    256-4
 				!byte  1, 	0,    65,2, 256-4
-sprprg:			!byte 3, 3, 3, 3, 3, 3, 3, 3, 256-8
+sprprg:			!byte 3 + 64, 4, 3, 3, 3, 3 + 64, 4, 3, 3, 3, 256-10
 
 springy = sprprg - anim_instrs
 
@@ -26,7 +30,7 @@ anim_operands: 	!byte 0
 				!byte 81,2, 32,   0,    0
 				!byte 32,   81,7, 32,   0
 				!byte 32,    0,   81,5, 0
-				!byte 0, 255, 254, 255, 0, 1, 2, 1
+				!byte 0, 1, 255, 254, 255, 0, 255, 1, 2, 1
 
 ; Calculated/mutated
 spawn_x:		!fill ANIMSLOTS, $e2

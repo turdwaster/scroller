@@ -13,9 +13,15 @@ main:
     sta ANIMFRAME
     jsr copyBacking
     jsr resetAnims
+
+    lda #7              ; Spawn player sprite
+    sta freeSprite
+    jsr spawnStuff
+    lda #0
+    sta $d000 + 7*2
     
 install:
-    sei
+    SEI
     LDA #%01111111      ; switch off interrupt signals from CIA-1
     STA $DC0D
 
@@ -95,10 +101,43 @@ exitirq:
     jmp $ea81
 
 skipandhop:
-    ldx #255           ; Assume scrolling left: X = scrollSpeed = -1 px/frame
     lda $dc00
-    and #16
-    bne shouldScroll
+    lsr
+    bcs noUpJoy
+    ldy #255
+    jmp setPlayerDy
+
+noUpJoy:
+    lsr
+    bcs noDownJoy
+    ldy #1
+    jmp setPlayerDy
+
+noDownJoy:
+    ldy #0
+setPlayerDy:
+    sty sprite_dy + 7*2
+
+    lsr
+    bcs noLeftJoy
+    ldy #255
+    jmp setPlayerDx
+
+noLeftJoy:
+    lsr
+    bcs noRightJoy
+    ldy #1
+    jmp setPlayerDx
+
+noRightJoy:
+    ldy #0
+setPlayerDx:
+    sty sprite_dx + 7*2
+
+checkButton:
+    ldx #255           ; Assume scrolling left: X = scrollSpeed = -1 px/frame
+    lsr
+    bcc shouldScroll
 
     lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
     beq shouldScroll    ; Char anims were swapped in prev. step so force swap to match anim targets

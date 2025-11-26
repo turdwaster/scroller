@@ -7,6 +7,12 @@ charsPerRow = 40
 levelWidth = 20
 lines = 24
 
+JOY_UP = 1
+JOY_DOWN = 2
+JOY_LEFT = 4
+JOY_RIGHT = 8
+JOY_BUTTON = 16
+
 ; Scroller constants
 chunks = 4
 rowsPerChunk = 6
