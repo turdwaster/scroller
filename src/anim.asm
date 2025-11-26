@@ -123,7 +123,7 @@ spawnUnit:
 
 	dec freeSprite        ; Allocate and bump
 	bpl doInitialRun
-	lda #7
+	lda #6                     ; Keep sprite 7 for player; restart at 6
 	sta freeSprite
 	jmp doInitialRun   ; Immediately run first anim step
 
@@ -343,23 +343,24 @@ moveNextSprite:
 	lda sprite_flags, X
 	beq spriteMoveDone
 
+	; X movement
 	lda sprite_dx, X
 	clc
 	adc scrollSpeed
-	beq spriteMoveDone ; Resulting speed is zero; no change
+	beq moveY ; Resulting speed is zero; no change
 
 	clc
 	bmi moveLeft         ; Speed is negative; treat overflow for x MSB backwards
 
 	adc $d000, X
 	sta $d000, X
-	bcc spriteMoveDone
+	bcc moveY
 	jmp flipMSB
 
 moveLeft:
 	adc $d000, X
 	sta $d000, X
-	bcs spriteMoveDone
+	bcs moveY
 
 	lda bitValuesX2, X     ; Get bit value for current sprite
 	tay                       ; Save "our" bit for reuse
@@ -373,6 +374,7 @@ moveLeft:
 	tya
 	eor $d015
 	sta $d015
+	jmp spriteMoveDone
 
 flipMSB:
 	lda bitValuesX2, X     ; Get bit value for current sprite
@@ -380,6 +382,32 @@ flipMSB:
 writeMSB:
 	eor $d010             ; Could use a zp temp and store d010 at the end instead
 	sta $d010
+
+moveY:
+	; Y movement
+	lda sprite_dy, X
+	beq spriteMoveDone ; Resulting speed is zero; no change
+	clc
+	bmi moveUp
+
+	adc $d001, X              ; Move down
+	bcs killSprite       ; Carry set => Y + dy wrapped => kill sprite
+	jmp writeY
+
+moveUp:
+	adc $d001, X
+	bcs writeY       ; Carry clear => (Y + neg. dy) did *not* wrap => negative Y => kill sprite
+
+killSprite:
+	lda #0
+	sta sprite_flags, X    ; Disable movement and hide sprite
+	lda bitValuesX2, X
+	eor $d015
+	sta $d015
+	jmp spriteMoveDone
+
+writeY:
+	sta $d001, X          ; Update Y
 
 spriteMoveDone:
 	dex
