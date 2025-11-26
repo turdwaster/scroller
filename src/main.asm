@@ -27,26 +27,24 @@ install:
 
     AND $D011           ; clear most significant bit of VIC's raster register
     STA $D011
-
-    STA $DC0D           ; acknowledge pending interrupts from CIA-1
-    STA $DD0D           ; acknowledge pending interrupts from CIA-2
+    STA $DC0D           ; acknowledge pending interrupts from CIA-1/2
+    STA $DD0D
 
     lda #$01            ; enable raster interrupt only
     sta $d01a
 
-    LDA #250        ; set rasterline where interrupt shall occur (251 = start of lower border)
-    STA $D012           ; 53266
-    lda #<irq           ; set IRQ vector low byte
+    LDA #250          ; set rasterline where interrupt shall occur
+    STA $D012
+    lda #<irq
     sta $0314
-    lda #>irq           ; set IRQ vector high byte
+    lda #>irq
     sta $0315
     cli
     rts
 
 topIrq:
     lsr $d019           ; Raster interrupt <=> C = 1
-
-    lda $d016
+    lda $d016           ; Clear X scroll for scoreboard
     and #255-15
     sta $d016
 
@@ -56,13 +54,10 @@ topIrq:
     STA $D012
     lda #<irq
     sta $0314
-    ;lda #>irq          ; Assuming same page
-    ;sta $0315
     jmp $ea81
 
 irq:
-    lda #$01
-    sta $d019
+    lsr $d019           ; Raster interrupt <=> C = 1
     lda #0
     sta $d020
     lda #6
@@ -72,12 +67,10 @@ irq:
     STA $D012
     lda #<topIrq
     sta $0314
-    ;lda #>topIrq          ; Assuming same page
-    ;sta $0315
     jsr skipandhop
 
 exitirq:
-    ;lda #11
+    ;lda #0
     ;sta $d020
 
     ; Display current scroll worker step while marking end-of-preScrollWorkStart raster line
@@ -95,9 +88,6 @@ exitirq:
     lda anim_pc
     ldx #4
     jsr debugg
-
-    lda #0
-    sta $d020
     jmp $ea81
 
 skipandhop:
