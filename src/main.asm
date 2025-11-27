@@ -95,6 +95,7 @@ skipandhop:
     lsr
     bcs noUpJoy
     ldy #255
+    lsr
     jmp setPlayerDy
 
 noUpJoy:
@@ -111,11 +112,27 @@ setPlayerDy:
     lsr
     bcs noLeftJoy
     ldy #255
+    lsr
     jmp setPlayerDx
 
 noLeftJoy:
     lsr
     bcs noRightJoy
+
+    tay                 ; Check right side limit of player; scroll if trying to go right
+    lda $d010
+    and #128
+    beq notAtRight
+    lda $d000 + 7*2
+    cmp #(XStartRight - 72) & 255
+    bcc notAtRight
+    lda #1
+    sta sprite_dx + 7*2
+    ldx #255
+    jmp shouldScroll
+
+notAtRight:
+    tya
     ldy #1
     jmp setPlayerDx
 
