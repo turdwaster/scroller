@@ -1,34 +1,24 @@
 ; Global constants
-scr0 = $0400
-scr1 = $2400
-charBufSwapBits = $20 ; (scr0 ^ scr1) >> 8
-colmem = $d800
-charsPerRow = 40
-levelWidth = 20
-lines = 24
-
-JOY_UP = 1
-JOY_DOWN = 2
-JOY_LEFT = 4
-JOY_RIGHT = 8
-JOY_BUTTON = 16
+CHARBUFSWAPBITS = $20 ; (scr0 ^ scr1) >> 8
+CHARSPERROW = 40
+LEVELWIDTH = 20
+CHARLINES = 24
 
 ; Scroller constants
-chunks = 4
-rowsPerChunk = 6
-chunkSize = charsPerRow * rowsPerChunk
+scr0 = $0400
+scr1 = $2400
 
 ; Anim constants
 ANIMSLOTS = 16
-XStartRight = 256 + 56 + 24
+XSTARTRIGHT = 256 + 56 + 24
 
 ; Scroller zero page
-ANIMFRAME = $f7
-LEVELPOS = $f8
+animFrame = $f7
+levelPos = $f8
 scrollSpeed = $f9
-SCROLLX = $fa
-SCROLLWORKPTR = $fb
-CHARBANK = $fc
+scrollX = $fa
+scrollWorkPtr = $fb
+charBank = $fc
 zpTmp = $fe
 zpTmpHi = $ff
 
@@ -41,9 +31,16 @@ activeAnim = $ec
 continueFlag = $ed
 curPc = $ee
 
-; VIC registers
+; VIC stuff
 SPRITE_X = $d000
 SPRITE_Y = $d001
 SPRITE_X_MSB = $d010
 SPRITE_ENABLE = $d015
 SPRITE_COLOR = $d027
+VIC_MEMCFG = $d018
+VIC_COLMEM = $d800
+JOY_UP = 1
+JOY_DOWN = 2
+JOY_LEFT = 4
+JOY_RIGHT = 8
+JOY_BUTTON = 16

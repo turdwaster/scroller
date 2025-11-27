@@ -1,6 +1,6 @@
 Run scrolling and animation according to a 16-step schedule:
 
-| FRAME | SCROLLX | move() | animate   | spawnStuff | scroll              | MoveToNext |
+| FRAME | scrollX | move() | animate   | spawnStuff | scroll              | MoveToNext |
 |-------|---------|--------|-----------|------------|---------------------|------------|
 | 0     | 7       | move() | animate() |            | moveChunk1a         |            |
 | 1     | 6       | move() |           |            | moveChunk1b         | Yes        |

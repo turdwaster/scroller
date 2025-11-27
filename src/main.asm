@@ -3,14 +3,14 @@
 
 main:
     lda #$10
-    sta CHARBANK
+    sta charBank
     lda #7
-    sta SCROLLX
+    sta scrollX
     lda #0
-    sta SCROLLWORKPTR
-    sta LEVELPOS
+    sta scrollWorkPtr
+    sta levelPos
     lda #256-8        ; Start at -8 to be at zero after preScrollWork is finished
-    sta ANIMFRAME
+    sta animFrame
     jsr copyBacking
     jsr resetAnims
     jsr resetPlayer
@@ -69,7 +69,7 @@ exitirq:
     ;sta $d020
 
     ; Display current scroll worker step while marking end-of-preScrollWorkStart raster line
-    lda SCROLLWORKPTR
+    lda scrollWorkPtr
     sec
     sbc #scrollWorkStart-preScrollWorkStart
     lsr
@@ -89,12 +89,12 @@ skipandhop:
     jsr checkPlayerMovement
     bne shouldScroll
 
-    lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
+    lda scrollX         ; scrollX = 0: at screen swap step (moveColorsAndSwap)
     beq shouldScroll    ; Char anims were swapped in prev. step so force swap to match anim targets
 
     lda $d016           ; Not scrolling; set X shift and clear scroll speed
     and #255-15
-    ora SCROLLX
+    ora scrollX
     sta $d016
     ldx #0
 
@@ -103,8 +103,8 @@ shouldScroll:
 
     jsr moveSprites     ; Defined in anim.asm
 
-    inc ANIMFRAME       ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
-    lda ANIMFRAME
+    inc animFrame       ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
+    lda animFrame
     and #1
     beq skipAnimate
     jsr animate         ; Defined in anim.asm
@@ -115,15 +115,15 @@ skipAnimate:
     rts
 
 goAheadScroll:
-    dec SCROLLX         ; Move one pixel to the left
+    dec scrollX         ; Move one pixel to the left
     bpl xOk
     lda #7              ; Reset scroll
-    sta SCROLLX
+    sta scrollX
 
 xOk:                    ; Set scroll x
     lda $d016
     and #255-15
-    ora SCROLLX
+    ora scrollX
     sta $d016
     jmp scrollLeft      ; Defined in scroll.asm
 
@@ -131,11 +131,11 @@ xOk:                    ; Set scroll x
 
 copyBacking:
     ; Set back buffer to front shifted one char left (ABCDEF -> BCDEF-)
-    ldx #charsPerRow-1
+    ldx #CHARSPERROW-1
 backingNext:
-    !for r, 0, lines-1 {
-        lda scr0 + r * charsPerRow + 1,x
-        sta scr1 + r * charsPerRow + 0,x
+    !for r, 0, CHARLINES-1 {
+        lda scr0 + r * CHARSPERROW + 1,x
+        sta scr1 + r * CHARSPERROW + 0,x
     }
     dex
     bmi backingDone
@@ -143,18 +143,18 @@ backingNext:
 
 backingDone:
     ; Clear bottom row
-    ldx #charsPerRow-1
+    ldx #CHARSPERROW-1
     lda #32
 clearMore:
-    sta scr1 + lines * charsPerRow,x
+    sta scr1 + CHARLINES * CHARSPERROW,x
     dex
     bpl clearMore
 
     ; Add first level column to back buffer (BCDEF- -> BCDEFX)
     ldy #0
-    !for r, 0, lines-1 {
-        lda level + r * levelWidth,y
-        sta scr1 + r * charsPerRow + (charsPerRow - 1)
+    !for r, 0, CHARLINES-1 {
+        lda level + r * LEVELWIDTH,y
+        sta scr1 + r * CHARSPERROW + (CHARSPERROW - 1)
     }
     rts
 
@@ -165,8 +165,8 @@ debugg:
     bcc okNum
     sbc #57 ; Carry is already set here
 okNum:
-    sta scr0 + 40 * lines + 2, x
-    sta scr1 + 40 * lines + 2, x
+    sta scr0 + 40 * CHARLINES + 2, x
+    sta scr1 + 40 * CHARLINES + 2, x
     lda #1
-    sta colmem + 40 * lines + 2, x
+    sta VIC_COLMEM + 40 * CHARLINES + 2, x
     rts

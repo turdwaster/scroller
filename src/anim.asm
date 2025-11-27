@@ -108,7 +108,7 @@ spawnUnit:
 	lda zpTmp
 	sta SPRITE_Y, Y          ; Sprite y position
 
-	lda #XStartRight & 255
+	lda #XSTARTRIGHT & 255
 	sta SPRITE_X, Y          ; Sprite x low
 
 	lda #1
@@ -136,7 +136,7 @@ spawnChar:
 	sta anim_addr_hi, X
 
 	; Place initial char at rightmost pos (in Y)
-	lda #(charsPerRow - 1)
+	lda #(CHARSPERROW - 1)
 	sta spawn_x, X
 
 doInitialRun:
@@ -302,14 +302,14 @@ swapNextAnim:
 	lda spawn_x, X
 	bmi swapAnimDone
 	lda anim_addr_hi, X
-	eor #charBufSwapBits
+	eor #CHARBUFSWAPBITS
 	sta anim_addr_hi, X
 	inx
 	bne swapNextAnim
 
 swapAnimDone:
 	lda animateScrHi
-	eor #charBufSwapBits
+	eor #CHARBUFSWAPBITS
 	sta animateScrHi
 	rts
 

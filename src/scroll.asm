@@ -1,12 +1,16 @@
+chunks = 4
+rowsPerChunk = 6
+chunkSize = CHARSPERROW * rowsPerChunk
+
 scrollLeft:
-    ldy SCROLLWORKPTR
+    ldy scrollWorkPtr
     iny                 ; Skip to next preScrollWorkStart item
     iny
     cpy #scrollWorkEnd-preScrollWorkStart
     bne stillWorkToDo
     ldy #scrollWorkStart - preScrollWorkStart
 stillWorkToDo:
-    sty SCROLLWORKPTR
+    sty scrollWorkPtr
 
     ; Execute current scroll preScrollWorkStart item (jmp -> "our" rts)
     lda preScrollWorkStart - 2 + 1,y ; -2 since predecremented, +1 since hi byte first
@@ -23,11 +27,11 @@ scrollWorkDone:
         ldx #0
 .chunkNext:
         !for r, 0, rowsPerChunk-1 {
-            lda .startChr + r * charsPerRow + .step,x
-            sta .startChr + r * charsPerRow,x
+            lda .startChr + r * CHARSPERROW + .step,x
+            sta .startChr + r * CHARSPERROW,x
         }
         inx
-        cpx #charsPerRow - .step
+        cpx #CHARSPERROW - .step
         beq .chunkDone
         jmp .chunkNext
 .chunkDone:
@@ -52,82 +56,82 @@ moveChunk2:
     }
 
 moveColorsAndSwap:
-    lda CHARBANK        ; Swap frame scr0/scr1
+    lda charBank        ; Swap frame scr0/scr1
     eor #$80
-    sta CHARBANK
-    lda $d018
+    sta charBank
+    lda VIC_MEMCFG
     and #15
-    ora CHARBANK
-    sta $d018
+    ora charBank
+    sta VIC_MEMCFG
 
 moveColors:
     ldx #0 ; Move top half of color mem (beam chasing needed!)
 colorNext:
-    !for r, 0, lines/2-1  {
-        lda colmem + r * charsPerRow + 1,x
-        sta colmem + r * charsPerRow,x
+    !for r, 0, CHARLINES/2-1  {
+        lda VIC_COLMEM + r * CHARSPERROW + 1,x
+        sta VIC_COLMEM + r * CHARSPERROW,x
     }
     inx
-    cpx #charsPerRow - 1
+    cpx #CHARSPERROW - 1
     bne colorNext
 someColorsDone:
     ; Add new color column from level data for top half
-    ldy LEVELPOS
-    !for r, 0, lines/2-1  {
-        lda level + r * levelWidth,y
-        sta colmem + r * charsPerRow + (charsPerRow - 1)
+    ldy levelPos
+    !for r, 0, CHARLINES/2-1  {
+        lda level + r * LEVELWIDTH,y
+        sta VIC_COLMEM + r * CHARSPERROW + (CHARSPERROW - 1)
     }
     ldx #0 ; Now do bottom half
 colorNext2:
-    !for r, lines/2, lines-1  {
-        lda colmem + r * charsPerRow + 1,x
-        sta colmem + r * charsPerRow,x
+    !for r, CHARLINES/2, CHARLINES-1  {
+        lda VIC_COLMEM + r * CHARSPERROW + 1,x
+        sta VIC_COLMEM + r * CHARSPERROW,x
     }
     inx
-    cpx #charsPerRow - 1
+    cpx #CHARSPERROW - 1
     bne colorNext2
 colorsDone:
-    ldy LEVELPOS
-    !for r, lines/2, lines-1  {
-        lda level + r * levelWidth,y
-        sta colmem + r * charsPerRow + (charsPerRow - 1)
+    ldy levelPos
+    !for r, CHARLINES/2, CHARLINES-1  {
+        lda level + r * LEVELWIDTH,y
+        sta VIC_COLMEM + r * CHARSPERROW + (CHARSPERROW - 1)
     }
     rts
 
 fillColumn1:
-    ldy LEVELPOS
+    ldy levelPos
     .fillWidth = 2
-    !for r, 0, lines-1 {
-        lda level + r * levelWidth + 0,y
-        sta scr0 + r * charsPerRow + (charsPerRow - .fillWidth) + 0
+    !for r, 0, CHARLINES-1 {
+        lda level + r * LEVELWIDTH + 0,y
+        sta scr0 + r * CHARSPERROW + (CHARSPERROW - .fillWidth) + 0
     }
-    !for r, 0, lines-1 {
-        lda level + r * levelWidth + 1,y
-        sta scr0 + r * charsPerRow + (charsPerRow - .fillWidth) + 1
+    !for r, 0, CHARLINES-1 {
+        lda level + r * LEVELWIDTH + 1,y
+        sta scr0 + r * CHARSPERROW + (CHARSPERROW - .fillWidth) + 1
     }
     rts
 
 fillColumn2:
-    ldy LEVELPOS
-    !for r, 0, lines-1 {
-        lda level + r * levelWidth + 0,y
-        sta scr1 + r * charsPerRow + (charsPerRow - .fillWidth) + 0
+    ldy levelPos
+    !for r, 0, CHARLINES-1 {
+        lda level + r * LEVELWIDTH + 0,y
+        sta scr1 + r * CHARSPERROW + (CHARSPERROW - .fillWidth) + 0
     }
-    !for r, 0, lines-1 {
-        lda level + r * levelWidth + 1,y
-        sta scr1 + r * charsPerRow + (charsPerRow - .fillWidth) + 1
+    !for r, 0, CHARLINES-1 {
+        lda level + r * LEVELWIDTH + 1,y
+        sta scr1 + r * CHARSPERROW + (CHARSPERROW - .fillWidth) + 1
     }
     rts
 
 bumpLevelPtr:
-    ldy LEVELPOS
+    ldy levelPos
     iny
     ; Let it loop baby
-    ;cpy #levelWidth-1
+    ;cpy #LEVELWIDTH-1
     ;bne stillHazLevel
     ;ldy #0
 ;stillHazLevel:
-    sty LEVELPOS
+    sty levelPos
     rts
 
 ; At start: copy + shift back buffer (LEVELPTR = X) and run preScrollWork

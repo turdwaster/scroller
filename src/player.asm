@@ -58,7 +58,7 @@ noLeftJoy:
     and #playerBit
     beq notAtRight
     lda playerX
-    cmp #(XStartRight - 72) & 255
+    cmp #(XSTARTRIGHT - 72) & 255
     bcc notAtRight
     lda #1
     sta playerDX

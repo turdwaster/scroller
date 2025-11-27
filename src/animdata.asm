@@ -1,6 +1,6 @@
 ; Nice to haves
-rowStartLo:    	!for r, 0, lines-1 { !byte (r * charsPerRow) & $ff }
-rowStartHi:    	!for r, 0, lines-1 { !byte (r * charsPerRow) >> 8  }
+rowStartLo:    	!for r, 0, CHARLINES-1 { !byte (r * CHARSPERROW) & $ff }
+rowStartHi:    	!for r, 0, CHARLINES-1 { !byte (r * CHARSPERROW) >> 8  }
 bitValuesX2:	!byte 1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64, 128, 128
 
 ; Read-only anim structure, interleaved by ANIMSLOTS
