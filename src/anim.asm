@@ -89,16 +89,16 @@ spawnUnit:
 	sta scr0 + 1016, Y     ; Sprite pointer = VIC bank start + acc. * 64
 	sta scr1 + 1016, Y     ; Set it for both char screens since it moves...
 
-	lda $d010             ; Set x MSB
+	lda SPRITE_X_MSB             ; Set x MSB
 	ora bitValues, Y
-	sta $d010
+	sta SPRITE_X_MSB
 
 	lda #13
-	sta $d027, Y          ; Set color
+	sta SPRITE_COLOR, Y          ; Set color
 
-	lda $d015
+	lda SPRITE_ENABLE
 	ora bitValues, Y
-	sta $d015             ; Update enable register
+	sta SPRITE_ENABLE             ; Update enable register
 
 	; ---- From here do all values stored at sprite index * 2 by using doubled Y ----
 	tya
@@ -106,10 +106,10 @@ spawnUnit:
 	tay
 
 	lda zpTmp
-	sta $d001, Y          ; Sprite y position
+	sta SPRITE_Y, Y          ; Sprite y position
 
 	lda #XStartRight & 255
-	sta $d000, Y          ; Sprite x low
+	sta SPRITE_X, Y          ; Sprite x low
 
 	lda #1
 	sta sprite_flags, Y    ; Enable movement
@@ -352,14 +352,14 @@ moveNextSprite:
 	clc
 	bmi moveLeft         ; Speed is negative; treat overflow for x MSB backwards
 
-	adc $d000, X
-	sta $d000, X
+	adc SPRITE_X, X
+	sta SPRITE_X, X
 	bcc moveY
 	jmp flipMSB
 
 moveLeft:
-	adc $d000, X
-	sta $d000, X
+	adc SPRITE_X, X
+	sta SPRITE_X, X
 	bcs moveY
 
 	lda bitValuesX2, X     ; Get bit value for current sprite
@@ -367,21 +367,21 @@ moveLeft:
 
 	; If MSB = 0, speed negative and about to flip: going off screen => disable?
 	; At this point: about to flip = true; speed neg = true, so check MSB.
-	and $d010             ; Could use a zp temp and store d010 at the end instead
+	and SPRITE_X_MSB             ; Could use a zp temp and store d010 at the end instead
 	bne writeMSB     ; MSB set so still at x > 0 (and < 256)
 
 	sta sprite_flags, X    ; Disable movement and hide sprite (A is zero from prev. AND)
 	tya
-	eor $d015
-	sta $d015
+	eor SPRITE_ENABLE
+	sta SPRITE_ENABLE
 	jmp spriteMoveDone
 
 flipMSB:
 	lda bitValuesX2, X     ; Get bit value for current sprite
 
 writeMSB:
-	eor $d010             ; Could use a zp temp and store d010 at the end instead
-	sta $d010
+	eor SPRITE_X_MSB             ; Could use a zp temp and store d010 at the end instead
+	sta SPRITE_X_MSB
 
 moveY:
 	; Y movement
@@ -390,24 +390,24 @@ moveY:
 	clc
 	bmi moveUp
 
-	adc $d001, X              ; Move down
+	adc SPRITE_Y, X              ; Move down
 	bcs killSprite       ; Carry set => Y + dy wrapped => kill sprite
 	jmp writeY
 
 moveUp:
-	adc $d001, X
+	adc SPRITE_Y, X
 	bcs writeY       ; Carry clear => (Y + neg. dy) did *not* wrap => negative Y => kill sprite
 
 killSprite:
 	lda #0
 	sta sprite_flags, X    ; Disable movement and hide sprite
 	lda bitValuesX2, X
-	eor $d015
-	sta $d015
+	eor SPRITE_ENABLE
+	sta SPRITE_ENABLE
 	jmp spriteMoveDone
 
 writeY:
-	sta $d001, X          ; Update Y
+	sta SPRITE_Y, X          ; Update Y
 
 spriteMoveDone:
 	dex

@@ -1,7 +1,7 @@
 playerSpriteIdx = 7
-playerColor = $d027 + playerSpriteIdx
+playerColor = SPRITE_COLOR + playerSpriteIdx
 playerStartX = 256 + 56 + 24 - 160 - 12
-playerX = $d000 + playerSpriteIdx*2
+playerX = SPRITE_X + playerSpriteIdx*2
 playerDX = sprite_dx + playerSpriteIdx*2
 playerDY = sprite_dy + playerSpriteIdx*2
 playerFlags = sprite_flags + playerSpriteIdx*2
@@ -14,9 +14,9 @@ resetPlayer:
     sta playerFlags
     jsr spawnStuff
 
-    lda $d010           ; Set x MSB
+    lda SPRITE_X_MSB           ; Set x MSB
 	and #255 - playerBit
-	sta $d010
+	sta SPRITE_X_MSB
     lda #playerStartX  ; Go to start position since default spawn is outside screen
     sta playerX
 
@@ -54,7 +54,7 @@ noLeftJoy:
     bcs noRightJoy
 
     tay                 ; Check right side limit of player; scroll if trying to go right
-    lda $d010
+    lda SPRITE_X_MSB
     and #playerBit
     beq notAtRight
     lda playerX

@@ -40,3 +40,10 @@ activeSpawn = $eb
 activeAnim = $ec
 continueFlag = $ed
 curPc = $ee
+
+; VIC registers
+SPRITE_X = $d000
+SPRITE_Y = $d001
+SPRITE_X_MSB = $d010
+SPRITE_ENABLE = $d015
+SPRITE_COLOR = $d027
