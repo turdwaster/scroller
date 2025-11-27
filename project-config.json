@@ -6,6 +6,7 @@
         "src/constants.asm",
         "src/main.asm",
         "src/scroll.asm",
+        "src/player.asm",
         "src/anim.asm",
         "src/animdata.asm",
         "src/leveldata.asm",

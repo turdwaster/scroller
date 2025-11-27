@@ -1,0 +1,85 @@
+playerSpriteIdx = 7
+playerColor = $d027 + playerSpriteIdx
+playerStartX = 256 + 56 + 24 - 160 - 12
+playerX = $d000 + playerSpriteIdx*2
+playerDX = sprite_dx + playerSpriteIdx*2
+playerDY = sprite_dy + playerSpriteIdx*2
+playerFlags = sprite_flags + playerSpriteIdx*2
+playerBit = 1 << playerSpriteIdx
+
+resetPlayer:
+    lda #7              ; Spawn player sprite (TODO: overlap with spawnStuff...)
+    sta freeSprite
+    lda #0
+    sta playerFlags
+    jsr spawnStuff
+
+    lda $d010           ; Set x MSB
+	and #255 - playerBit
+	sta $d010
+    lda #playerStartX  ; Go to start position since default spawn is outside screen
+    sta playerX
+
+    lda #14
+    sta playerColor    ; Remove when supported by spawn or stop using spawn...
+    rts
+
+checkPlayerMovement:
+    lda $dc00
+    lsr
+    bcs noUpJoy
+    ldy #255
+    lsr
+    jmp setPlayerDy
+
+noUpJoy:
+    lsr
+    bcs noDownJoy
+    ldy #1
+    jmp setPlayerDy
+
+noDownJoy:
+    ldy #0
+setPlayerDy:
+    sty playerDY
+
+    lsr
+    bcs noLeftJoy
+    ldy #255
+    lsr
+    jmp setPlayerDx
+
+noLeftJoy:
+    lsr
+    bcs noRightJoy
+
+    tay                 ; Check right side limit of player; scroll if trying to go right
+    lda $d010
+    and #playerBit
+    beq notAtRight
+    lda playerX
+    cmp #(XStartRight - 72) & 255
+    bcc notAtRight
+    lda #1
+    sta playerDX
+    jmp scrollRight
+
+notAtRight:
+    tya
+    ldy #1
+    jmp setPlayerDx
+
+noRightJoy:
+    ldy #0
+setPlayerDx:
+    sty playerDX
+
+checkButton:
+    lsr
+    bcc scrollRight
+    ldx #0
+    rts
+
+scrollRight:
+    ldx #255
+    rts                 ; Exit and return scroll speed for rightwards move

@@ -13,12 +13,7 @@ main:
     sta ANIMFRAME
     jsr copyBacking
     jsr resetAnims
-
-    lda #7              ; Spawn player sprite
-    sta freeSprite
-    jsr spawnStuff
-    lda #0
-    sta $d000 + 7*2
+    jsr resetPlayer
     
 install:
     SEI
@@ -91,60 +86,8 @@ exitirq:
     jmp $ea81
 
 skipandhop:
-    lda $dc00
-    lsr
-    bcs noUpJoy
-    ldy #255
-    lsr
-    jmp setPlayerDy
-
-noUpJoy:
-    lsr
-    bcs noDownJoy
-    ldy #1
-    jmp setPlayerDy
-
-noDownJoy:
-    ldy #0
-setPlayerDy:
-    sty sprite_dy + 7*2
-
-    lsr
-    bcs noLeftJoy
-    ldy #255
-    lsr
-    jmp setPlayerDx
-
-noLeftJoy:
-    lsr
-    bcs noRightJoy
-
-    tay                 ; Check right side limit of player; scroll if trying to go right
-    lda $d010
-    and #128
-    beq notAtRight
-    lda $d000 + 7*2
-    cmp #(XStartRight - 72) & 255
-    bcc notAtRight
-    lda #1
-    sta sprite_dx + 7*2
-    ldx #255
-    jmp shouldScroll
-
-notAtRight:
-    tya
-    ldy #1
-    jmp setPlayerDx
-
-noRightJoy:
-    ldy #0
-setPlayerDx:
-    sty sprite_dx + 7*2
-
-checkButton:
-    ldx #255           ; Assume scrolling left: X = scrollSpeed = -1 px/frame
-    lsr
-    bcc shouldScroll
+    jsr checkPlayerMovement
+    bne shouldScroll
 
     lda SCROLLX         ; SCROLLX = 0: at screen swap step (moveColorsAndSwap)
     beq shouldScroll    ; Char anims were swapped in prev. step so force swap to match anim targets
@@ -158,7 +101,6 @@ checkButton:
 shouldScroll:
     stx scrollSpeed
 
-doMovement:
     jsr moveSprites     ; Defined in anim.asm
 
     inc ANIMFRAME       ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
