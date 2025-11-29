@@ -7,6 +7,8 @@ playerDY = sprite_dy + playerSpriteIdx*2
 playerFlags = sprite_flags + playerSpriteIdx*2
 playerBit = 1 << playerSpriteIdx
 
+PLAYER_RSCROLLX = XSTARTRIGHT - 72 ; Position at which player stops and screen scrolls right
+
 resetPlayer:
     lda #7              ; Spawn player sprite (TODO: overlap with spawnStuff...)
     sta freeSprite
@@ -58,11 +60,12 @@ noLeftJoy:
     and #playerBit
     beq notAtRight
     lda playerX
-    cmp #(XSTARTRIGHT - 72) & 255
+    cmp #PLAYER_RSCROLLX & 255
     bcc notAtRight
     lda #1
     sta playerDX
-    jmp scrollRight
+    ldx #255
+    jmp setScrollSpeed
 
 notAtRight:
     tya
@@ -75,11 +78,11 @@ setPlayerDx:
     sty playerDX
 
 checkButton:
-    lsr
-    bcc scrollRight
-    ldx #0
-    rts
-
-scrollRight:
     ldx #255
-    rts                 ; Exit and return scroll speed for rightwards move
+    lsr
+    bcc setScrollSpeed
+    ldx #0
+
+setScrollSpeed: 
+    stx scrollSpeed
+    rts

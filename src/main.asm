@@ -86,9 +86,19 @@ exitirq:
     jmp $ea81
 
 skipandhop:
-    jsr checkPlayerMovement
-    bne shouldScroll
+    inc animFrame       ; Run animations on odd frames (avoid doing anything at time of moveColorsAndSwap)
+    lda animFrame
+    and #1
+    beq skipAnimate
 
+    jsr checkPlayerMovement ; Defined in player.asm
+    jsr animate         ; Defined in anim.asm
+
+skipAnimate:
+    jsr moveSprites     ; Defined in anim.asm
+
+    lda scrollSpeed
+    bne shouldScroll
     lda scrollX         ; scrollX = 0: at screen swap step (moveColorsAndSwap)
     beq shouldScroll    ; Char anims were swapped in prev. step so force swap to match anim targets
 
@@ -96,30 +106,13 @@ skipandhop:
     and #255-15
     ora scrollX
     sta $d016
-    ldx #0
-
-shouldScroll:
-    stx scrollSpeed
-
-    jsr moveSprites     ; Defined in anim.asm
-
-    inc animFrame       ; Run animate on odd frames (try to avoid doing it at time of moveColorsAndSwap)
-    lda animFrame
-    and #1
-    beq skipAnimate
-    jsr animate         ; Defined in anim.asm
-
-skipAnimate:
-    lda scrollSpeed
-    bne goAheadScroll
     rts
 
-goAheadScroll:
+shouldScroll:
     dec scrollX         ; Move one pixel to the left
     bpl xOk
     lda #7              ; Reset scroll
     sta scrollX
-
 xOk:                    ; Set scroll x
     lda $d016
     and #255-15
