@@ -79,6 +79,8 @@ someColorsDone:
     ldy levelPos
     !for r, 0, CHARLINES/2-1  {
         lda level + r * LEVELWIDTH,y
+        tax
+        lda charColors,x
         sta VIC_COLMEM + r * CHARSPERROW + (CHARSPERROW - 1)
     }
     ldx #0 ; Now do bottom half
@@ -94,6 +96,8 @@ colorsDone:
     ldy levelPos
     !for r, CHARLINES/2, CHARLINES-1  {
         lda level + r * LEVELWIDTH,y
+        tax
+        lda charColors,x
         sta VIC_COLMEM + r * CHARSPERROW + (CHARSPERROW - 1)
     }
     rts
