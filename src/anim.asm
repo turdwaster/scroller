@@ -177,6 +177,9 @@ animsDone:
 runAnimTick:
 	ldy anim_pc, X
 	bne runAnimInstr          ; Magic zero end-of-program PC (jump here and stay here...)
+	
+	lda #0				 ; Disable animation and exit
+	sta spawn_x, X
 	rts
 
 runAnimInstr:
