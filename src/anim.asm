@@ -176,10 +176,9 @@ animsDone:
 	; X = anim slot index
 runAnimTick:
 	ldy anim_pc, X
-	bne runAnimInstr          ; Magic zero end-of-program PC (jump here and stay here...)
-	
-	lda #0				 ; Disable animation and exit
-	sta spawn_x, X
+	bne runAnimInstr     ; Magic zero end-of-program PC?
+	lda #0
+	sta spawn_x, X             ; Disable animation slot and exit
 	rts
 
 runAnimInstr:
