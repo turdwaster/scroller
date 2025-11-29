@@ -1,7 +1,7 @@
 ; Global constants
 CHARBUFSWAPBITS = $20 ; (scr0 ^ scr1) >> 8
 CHARSPERROW = 40
-LEVELWIDTH = 20
+LEVELWIDTH = 40
 CHARLINES = 24
 
 ; Scroller constants

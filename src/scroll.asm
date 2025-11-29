@@ -127,10 +127,10 @@ bumpLevelPtr:
     ldy levelPos
     iny
     ; Let it loop baby
-    ;cpy #LEVELWIDTH-1
-    ;bne stillHazLevel
-    ;ldy #0
-;stillHazLevel:
+    cpy #LEVELWIDTH-1
+    bne stillHazLevel
+    ldy #0
+stillHazLevel:
     sty levelPos
     rts
 
