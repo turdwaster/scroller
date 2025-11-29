@@ -76,11 +76,11 @@ exitirq:
     ldx #0
     jsr debugg
 
-    lda anim_stepwait
+    lda activeSpawn
     ldx #2
     jsr debugg
 
-    lda anim_pc
+    lda activeAnim
     ldx #4
     jsr debugg
     jmp $ea81
