@@ -86,8 +86,8 @@ spawnUnit:
 	ldy freeSprite        ; Get free index
 
 	lda #balloon / 64
-	sta scr0 + 1016, Y     ; Sprite pointer = VIC bank start + acc. * 64
-	sta scr1 + 1016, Y     ; Set it for both char screens since it moves...
+	sta SPRITE_PTRS0, Y     ; Sprite pointer = VIC bank start + acc. * 64
+	sta SPRITE_PTRS1, Y     ; Set it for both char screens since it moves...
 
 	lda SPRITE_X_MSB             ; Set x MSB
 	ora bitValues, Y
@@ -191,8 +191,10 @@ runAnimInstr:
 
 	clc                           ; JMP instruction - update PC and do next instr
 	adc curPc
-	beq updatePc       ; END instruction; store PC and bail
+	bne keepProcessing
+	jmp updatePc       ; END instruction; store PC and bail
 
+keepProcessing:
 	tay                           ; Immediately run next instruction
 	jmp runAnimInstr
 
@@ -214,7 +216,8 @@ execInstr:
 	beq doSetSpeedX
 	cmp #4
 	beq doSetSpeedY
-
+	cmp #5
+	beq doSetSprite
 	jmp noRun
 
 doNop:
@@ -257,6 +260,17 @@ doSetSpeedY:
 	lda anim_operands, Y       ; Stow new speed operand
 	ldy anim_sprite_idx, X
 	sta sprite_dy, Y
+	jmp nextAnimInstr
+
+doSetSprite:
+	stx zpTmp
+	lda anim_sprite_idx, X
+	lsr
+	tax
+	lda anim_operands, Y
+	sta SPRITE_PTRS0, X
+	sta SPRITE_PTRS1, X
+	ldx zpTmp
 	jmp nextAnimInstr
 
 nextAnimInstr:
