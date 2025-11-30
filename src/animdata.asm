@@ -16,12 +16,12 @@ anim_stepdelay: !byte  0
 				!byte  25, 25, 25
 				!byte  2, 4, 6, 8
 				!align ANIMSLOTS-1, 0, 0
-anim_firstInstr:!byte  0
-				!byte  1, 6, 11
+anim_firstInstr:!byte  1
+				!byte  3, 8, 13
 				!byte  springy,  springy,  springy,  springy
 
 ; Instructions
-anim_instrs:	!byte 0
+anim_instrs:	!byte 0, 5, 256-2
  				!byte 65,2, 1,    0,    256-4
 				!byte  1, 	65,2, 1,    256-4
 				!byte  1, 	0,    65,2, 256-4
@@ -29,7 +29,7 @@ sprprg:			!byte 3 + 64, 4, 3, 3, 3, 3 + 64, 4, 3, 3, 3, 256-10
 
 springy = sprprg - anim_instrs
 
-anim_operands: 	!byte 0
+anim_operands: 	!byte 0, piggy/64, 0
 				!byte 81,2, 32,   0,    0
 				!byte 32,   81,7, 32,   0
 				!byte 32,    0,   81,5, 0
