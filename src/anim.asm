@@ -192,7 +192,7 @@ runAnimInstr:
 	clc                           ; JMP instruction - update PC and do next instr
 	adc curPc
 	bne keepProcessing
-	jmp updatePc       ; END instruction; store PC and bail
+	jmp updatePc           ; END instruction; store PC and bail
 
 keepProcessing:
 	tay                           ; Immediately run next instruction
@@ -218,6 +218,7 @@ execInstr:
 	beq doSetSpeedY
 	cmp #5
 	beq doSetSprite
+
 	jmp noRun
 
 doNop:

@@ -10,79 +10,79 @@ playerBit = 1 << playerSpriteIdx
 PLAYER_RSCROLLX = XSTARTRIGHT - 72 ; Position at which player stops and screen scrolls right
 
 resetPlayer:
-    lda #7              ; Spawn player sprite (TODO: overlap with spawnStuff...)
-    sta freeSprite
-    lda #0
-    sta playerFlags
-    jsr spawnStuff
+	lda #7                 ; Spawn player sprite (TODO: overlap with spawnStuff...)
+	sta freeSprite
+	lda #0
+	sta playerFlags
+	jsr spawnStuff
 
-    lda SPRITE_X_MSB           ; Set x MSB
+	lda SPRITE_X_MSB   ; Set x MSB
 	and #255 - playerBit
 	sta SPRITE_X_MSB
-    lda #playerStartX  ; Go to start position since default spawn is outside screen
-    sta playerX
+	lda #playerStartX      ; Go to start position since default spawn is outside screen
+	sta playerX
 
-    lda #14
-    sta playerColor    ; Remove when supported by spawn or stop using spawn...
-    rts
+	lda #14
+	sta playerColor    ; Remove when supported by spawn or stop using spawn...
+	rts
 
 checkPlayerMovement:
-    lda $dc00
-    lsr
-    bcs noUpJoy
-    ldy #255
-    lsr
-    jmp setPlayerDy
+	lda $dc00
+	lsr
+	bcs noUpJoy
+	ldy #255
+	lsr
+	jmp setPlayerDy
 
 noUpJoy:
-    lsr
-    bcs noDownJoy
-    ldy #1
-    jmp setPlayerDy
+	lsr
+	bcs noDownJoy
+	ldy #1
+	jmp setPlayerDy
 
 noDownJoy:
-    ldy #0
+	ldy #0
 setPlayerDy:
-    sty playerDY
+	sty playerDY
 
-    lsr
-    bcs noLeftJoy
-    ldy #255
-    lsr
-    jmp setPlayerDx
+	lsr
+	bcs noLeftJoy
+	ldy #255
+	lsr
+	jmp setPlayerDx
 
 noLeftJoy:
-    lsr
-    bcs noRightJoy
+	lsr
+	bcs noRightJoy
 
-    tay                 ; Check right side limit of player; scroll if trying to go right
-    lda SPRITE_X_MSB
-    and #playerBit
-    beq notAtRight
-    lda playerX
-    cmp #PLAYER_RSCROLLX & 255
-    bcc notAtRight
-    lda #1
-    sta playerDX
-    ldx #255
-    jmp setScrollSpeed
+	tay                  ; Check right side limit of player; scroll if trying to go right
+	lda SPRITE_X_MSB
+	and #playerBit
+	beq notAtRight
+	lda playerX
+	cmp #PLAYER_RSCROLLX & 255
+	bcc notAtRight
+	lda #1
+	sta playerDX
+	ldx #255
+	jmp setScrollSpeed
 
 notAtRight:
-    tya
-    ldy #1
-    jmp setPlayerDx
+	tya
+	ldy #1
+	jmp setPlayerDx
 
 noRightJoy:
-    ldy #0
+	ldy #0
 setPlayerDx:
-    sty playerDX
+	sty playerDX
 
-checkButton:
-    ldx #255
-    lsr
-    bcc setScrollSpeed
-    ldx #0
+	; Check button
+	ldx #255
+	lsr
+	bcc setScrollSpeed
+	ldx #0
 
-setScrollSpeed: 
-    stx scrollSpeed
-    rts
+setScrollSpeed:
+	stx scrollSpeed
+	rts
