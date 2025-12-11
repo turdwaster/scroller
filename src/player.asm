@@ -7,6 +7,7 @@ playerDX = sprite_dx + playerSpriteIdx*2
 playerDY = sprite_dy + playerSpriteIdx*2
 playerFlags = sprite_flags + playerSpriteIdx*2
 playerBit = 1 << playerSpriteIdx
+playerMapX = continueFlag
 
 PLAYER_RSCROLLX = XSTARTRIGHT - 72 ; Position at which player stops and screen scrolls right
 PLAYER_W = 24
@@ -93,12 +94,16 @@ setScrollSpeed:
 	rts
 
 checkCollisions:
-	lda playerX                    ; Get and store X "hangover"
+	lda playerX                    ; Get and store actual tile relative player X
 	sec
 	sbc #LEFTEDGE
 	sec
 	sbc scrollX
-	sta continueFlag
+	sta playerMapX
+
+	lda playerDY
+	beq noFloorReached     ; No vertical movement = no floor check
+	bmi noFloorReached       ; No floor check unless moving down
 
 	lda playerY                    ; Get on-screen relative top coord
 	sec
@@ -119,14 +124,11 @@ checkCollisions:
 checkFloor:
 	tya                               ; Find target tile row from local player Y
 	clc
-	adc #7                             ; Round up (C == 0 from subtraction above)
+	adc #7 + PLAYER_H                  ; Round up (+7) and move down player height
 	lsr
 	lsr
 	lsr
 	tay
-
-	iny                               ; Advance to target row (ceil(y/8) + player height in chars = 2*8)
-	iny
 
 	lda rowStartLo, Y              ; Get row address
 	sta zpTmp
@@ -135,7 +137,7 @@ checkFloor:
 	sta zpTmpHi
 
 	; Add player X tile offset
-	lda continueFlag
+	lda playerMapX
 	lsr
 	lsr
 	lsr
@@ -155,7 +157,7 @@ checkFloor:
 	cmp #32
 	bne hitFloor3
 
-	lda continueFlag
+	lda playerMapX              ; Check X "hangover" for player right edge
 	and #7
 	beq noFloorReached     ; Not poking out over rightmost char!
 	iny
@@ -183,4 +185,3 @@ hitFloor4:
 noFloorReached:
 	; TODO: check other walls
 	rts
-	
