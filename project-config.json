@@ -2,15 +2,9 @@
     "name": "Scroller",
     "description": "Project Scroller",
     "toolkit": "acme",
+    "machine": "c64",
     "sources": [
-        "src/constants.asm",
-        "src/main.asm",
-        "src/scroll.asm",
-        "src/player.asm",
-        "src/anim.asm",
-        "src/animdata.asm",
-        "src/leveldata.asm",
-        "src/sprites.asm"
+        "src/build.asm"
     ],
     "build": "debug",
     "definitions": [],
