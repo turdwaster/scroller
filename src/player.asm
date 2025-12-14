@@ -144,17 +144,14 @@ checkFloor:
 	tay
 
 	lda (zpTmp), Y               ; Start peeking for floor tiles left to right
-	cmp #32
 	bne hitFloor1
 
 	iny
 	lda (zpTmp), Y
-	cmp #32
 	bne hitFloor2
 
 	iny
 	lda (zpTmp), Y
-	cmp #32
 	bne hitFloor3
 
 	lda playerMapX              ; Check X "hangover" for player right edge
@@ -162,7 +159,6 @@ checkFloor:
 	beq noFloorReached     ; Not poking out over rightmost char!
 	iny
 	lda (zpTmp), Y
-	cmp #32
 	bne hitFloor4            ; TODO: reverse if correct Y reg is not needed
 	jmp noFloorReached
 
