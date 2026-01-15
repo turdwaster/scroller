@@ -14,6 +14,7 @@ PLAYER_W = 24
 PLAYER_H = 16
 TOPEDGE = 50
 LEFTEDGE = 24
+GRAVITY_DELAY = 1
 
 resetPlayer:
 	lda #7                 ; Spawn player sprite (TODO: overlap with spawnStuff...)
@@ -45,13 +46,20 @@ checkPlayerMovement:
 	jmp checkRight
 
 noUpJoy:
+	tax
+	lda animFrame
+	and #((1 << GRAVITY_DELAY) - 1) << 1	; Only called for every other animFrame so mask must be << 1
+	bne restoreJoyBits
 	ldy playerDY
 	bmi alwaysFall      ; Not at max fall speed if moving up
 	cpy #7
-	bcs checkRight		; Already at max fall speed - stop accelerating
+	bcs restoreJoyBits		; Already at max fall speed - stop accelerating
 	
 alwaysFall:
 	inc playerDY		; Accelerate downward
+
+restoreJoyBits:
+	txa
 
 checkRight:
 	lsr
