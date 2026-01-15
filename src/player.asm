@@ -36,21 +36,29 @@ checkPlayerMovement:
 	lda $dc00
 	lsr
 	bcs noUpJoy
-	ldy #255
-	lsr
-	jmp setPlayerDy
+
+	ldy playerDY
+	bmi checkRight		; Already moving up
+
+	dey					; Accelerate upward (max speed will be -1)
+	sty playerDY
+	jmp checkRight
 
 noUpJoy:
+	ldy playerDY
+	bmi alwaysFall      ; Not at max fall speed if moving up
+	cpy #7
+	bcs checkRight		; Already at max fall speed - stop accelerating
+	
+alwaysFall:
+	inc playerDY		; Accelerate downward
+
+checkRight:
 	lsr
-	bcs noDownJoy
+	bcs checkLeft
 	ldy #1
-	jmp setPlayerDy
 
-noDownJoy:
-	ldy #0
-setPlayerDy:
-	sty playerDY
-
+checkLeft:
 	lsr
 	bcs noLeftJoy
 	ldy #255
