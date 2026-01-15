@@ -90,9 +90,9 @@ skipandhop:
 
     jsr checkPlayerMovement ; Defined in player.asm
     jsr animate         ; Defined in anim.asm
-    jsr checkCollisions ; Defined in player.asm
 
 skipAnimate:
+    jsr checkCollisions ; Defined in player.asm
     jsr moveSprites     ; Defined in anim.asm
 
     lda scrollSpeed
