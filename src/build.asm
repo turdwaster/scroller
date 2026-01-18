@@ -10,3 +10,6 @@
 !source "src/animdata.asm"
 !source "src/leveldata.asm"
 !source "src/sprites.asm"
+
+* = $3800
+!source "src/charset.asm"

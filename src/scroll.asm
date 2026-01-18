@@ -2,6 +2,35 @@ chunks = 4
 rowsPerChunk = 6
 chunkSize = CHARSPERROW * rowsPerChunk
 
+!if 0 {
+initCharset:
+    lda #$33
+    sta $01
+    ldx #$00
+copyLoop:
+    lda $D000,x             ; read from character ROM
+    sta $3800,x             ; write to RAM
+    lda $D100,x
+    sta $3900,x
+    lda $D200,x
+    sta $3a00,x
+    lda $D300,x
+    sta $3b00,x
+    lda $D400,x
+    sta $3c00,x
+    lda $D500,x
+    sta $3d00,x
+    lda $D600,x
+    sta $3e00,x
+    lda $D700,x
+    sta $3f00,x
+    inx
+    bne copyLoop
+    lda #$37
+    sta $01
+    rts
+}
+
 scrollLeft:
     ldy scrollWorkPtr
     iny                 ; Skip to next preScrollWorkStart item
@@ -61,6 +90,7 @@ moveColorsAndSwap:
     sta charBank
     lda VIC_MEMCFG
     and #15
+    ora #14
     ora charBank
     sta VIC_MEMCFG
 
