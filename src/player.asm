@@ -41,7 +41,12 @@ checkPlayerMovement:
 	ldy playerDY
 	bmi checkRight		; Already moving up
 
+!if 0 {
+	ldy #256 - 2						; Jump boost
+}
+!if 1 {
 	dey					; Accelerate upward (max speed will be -1)
+}
 	sty playerDY
 	jmp checkRight
 
