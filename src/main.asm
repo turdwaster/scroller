@@ -12,6 +12,14 @@ main:
     jsr resetAnims
     jsr resetPlayer
     
+    lda #160
+    ldx #CHARSPERROW-1
+addBridge:
+    sta scr0 + 15 * 40, X
+    sta scr1 + 15 * 40, X
+    dex
+    bpl addBridge
+
 install:
     SEI
     LDA #%01111111      ; switch off interrupt signals from CIA-1
