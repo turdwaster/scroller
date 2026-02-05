@@ -6,19 +6,23 @@ bitValuesX2:	!byte 1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64, 128, 128
 ; Read-only anim structure, interleaved by ANIMSLOTS
 spawn_wait: 	!byte  0			; Player
 				!byte  5, 0, 0		; Traffic light
-				!byte  15, 5, 5, 5	; Loons
+				//!byte  15, 5, 5, 5	; Loons
+				!byte  23 			; Gas can
 				!align ANIMSLOTS-1, 0, 255
 anim_y:			!byte  50 | 128
 				!byte  0, 1, 2
-				!byte  128 + 25, 128 + 50 , 128 + 75, 128 + 100
+				//!byte  128 + 25, 128 + 50 , 128 + 75, 128 + 100
+				!byte  21
 				!align ANIMSLOTS-1, 0, 0
 anim_stepdelay: !byte  0
 				!byte  25, 25, 25
-				!byte  2, 4, 6, 8
+				//!byte  2, 4, 6, 8
+				!byte  3
 				!align ANIMSLOTS-1, 0, 0
 anim_firstInstr:!byte  1
 				!byte  3, 8, 13
-				!byte  springy,  springy,  springy,  springy
+				//!byte  springy,  springy,  springy,  springy
+				!byte  gascan
 
 ; Instructions
 anim_instrs:	!byte 0, 5, 256-2
@@ -29,11 +33,17 @@ sprprg:			!byte 3 + 64, 4, 3, 3, 3, 3 + 64, 4, 3, 3, 3, 256-10
 
 springy = sprprg - anim_instrs
 
+gasgasgas:
+				!byte 1, 2, 2, 2, 64+2, 256-5
+
+gascan = gasgasgas - anim_instrs
+
 anim_operands: 	!byte 0, piggy/64, 0
 				!byte 81,2, 32,   0,    0
 				!byte 32,   81,7, 32,   0
 				!byte 32,    0,   81,5, 0
-				!byte 0, 1, 255, 254, 255, 0, 255, 1, 2, 1
+				!byte 0, 1, 255, 254, 255, 0, 255, 1, 2, 1, 0
+				!byte 64, 2, 10, 1, 10
 
 ; Calculated/mutated
 spawn_x:		!fill ANIMSLOTS, $e2
