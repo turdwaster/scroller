@@ -19,6 +19,7 @@ scrollSpeed = $f9
 scrollX = $fa
 scrollWorkPtr = $fb
 charBank = $fc
+zpTmp2 = $fd
 zpTmp = $fe
 zpTmpHi = $ff
 

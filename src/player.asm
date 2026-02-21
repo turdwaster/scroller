@@ -8,6 +8,8 @@ playerDY = sprite_dy + playerSpriteIdx*2
 playerFlags = sprite_flags + playerSpriteIdx*2
 playerBit = 1 << playerSpriteIdx
 playerMapX = continueFlag
+playerMapY = curPc
+minDistY = zpTmp2
 
 PLAYER_RSCROLLX = XSTARTRIGHT - 72 ; Position at which player stops and screen scrolls right
 PLAYER_W = 24
@@ -39,29 +41,26 @@ checkPlayerMovement:
 	bcs noUpJoy
 
 	ldy playerDY
-	bmi checkRight		; Already moving up
+	bmi checkRight                   ; Already moving up
 
-!if 0 {
-	ldy #256 - 2						; Jump boost
-}
-!if 1 {
-	dey					; Accelerate upward (max speed will be -1)
-}
+	dey                                       ; Accelerate upward (max speed will be -1)
+	; ldy #256 - 2                             ;  Alternative: jump boost
 	sty playerDY
 	jmp checkRight
 
 noUpJoy:
 	tax
 	lda animFrame
-	and #((1 << GRAVITY_DELAY) - 1) << 1	; Only called for every other animFrame so mask must be << 1
+	and #((1 << GRAVITY_DELAY) - 1) << 1       ; Only called for every other animFrame so mask must be << 1
 	bne restoreJoyBits
+
 	ldy playerDY
-	bmi alwaysFall      ; Not at max fall speed if moving up
+	bmi alwaysFall                   ; Not at max fall speed if moving up
 	cpy #7
-	bcs restoreJoyBits		; Already at max fall speed - stop accelerating
-	
+	bcs restoreJoyBits               ; Already at max fall speed - stop accelerating
+
 alwaysFall:
-	inc playerDY		; Accelerate downward
+	inc playerDY                           ; Accelerate downward
 
 restoreJoyBits:
 	txa
@@ -122,20 +121,41 @@ checkCollisions:
 	sbc scrollX
 	sta playerMapX
 
-	lda playerDY
-	beq noFloorReached     ; No vertical movement = no floor check
-	bmi noFloorReached       ; No floor check unless moving down
-
 	lda playerY                    ; Get on-screen relative top coord
 	sec
 	sbc #TOPEDGE
-	tay
+	sta playerMapY
+
+	lsr
+	lsr
+	lsr
+	tax
+	lda rowStartLo, X              ; Set row start address
+	sta zpTmp
+	lda rowStartHi, X
+	ora animateScrHi
+	sta zpTmpHi
+
+	lda playerMapX                ; Find X target tile offset
+	lsr
+	lsr
+	lsr
+	tax                               ; Store X tile offset in X -> X register
+
+	; zpTmp now points to start of tile row at top of entity and X reg holds horiz offset to first touching tile
+	; Start doing collision checks based on movement direction
+
+	lda playerDY
+	beq noDownMovement     ; No vertical movement = no floor check
+	bmi noDownMovement       ; No floor check unless moving down
+
+	lda playerMapY
 	and #7                             ; Calculate minDist to nearest char below Y = 7 - y & 7 (or 0 if Y & 7 == 0)
 	eor #7
 	clc
 	adc #1
 	and #7
-	tax                               ; Store minDistY in X reg for now
+	sta minDistY                  ; Stash minDistY
 
 	sec
 	sbc playerDY                   ; Check if travelling into next block below (could skip all of this if dy == 0)
@@ -143,62 +163,63 @@ checkCollisions:
 	bcs noFloorReached       ; There was room left so no need to look for floor
 
 checkFloor:
-	tya                               ; Find target tile row from local player Y
+	; Start checking floor
+
+	txa                               ; Get X tile offset
 	clc
-	adc #7 + PLAYER_H                  ; Round up (+7) and move down player height
-	lsr
-	lsr
-	lsr
+	adc #(CHARSPERROW * (PLAYER_H / 8))              ; Find floor tile row
+	ldy minDistY
+	beq skipAdjustFloor    ; No adjustment needed if exactly at tile boundary
+	adc #CHARSPERROW
+
+skipAdjustFloor:
 	tay
-
-	lda rowStartLo, Y              ; Get row address
-	sta zpTmp
-	lda rowStartHi, Y
-	ora animateScrHi
-	sta zpTmpHi
-
-	; Add player X tile offset
-	lda playerMapX
-	lsr
-	lsr
-	lsr
-	tay
-
 	lda (zpTmp), Y               ; Start peeking for floor tiles left to right
-	bne hitFloor1
+	bmi hitFloor
 
 	iny
 	lda (zpTmp), Y
-	bne hitFloor2
+	bmi hitFloor
 
 	iny
 	lda (zpTmp), Y
-	bne hitFloor3
+	bmi hitFloor
 
-	lda playerMapX              ; Check X "hangover" for player right edge
+	lda playerMapX                ; Check X "hangover" for player right edge
 	and #7
 	beq noFloorReached     ; Not poking out over rightmost char!
+
 	iny
 	lda (zpTmp), Y
-	bne hitFloor4            ; TODO: reverse if correct Y reg is not needed
-	jmp noFloorReached
+	bpl noFloorReached
 
-hitFloor1:
-	;        iny();    ; To guarantee same char offset in row after check if needed for reuse
-hitFloor2:
-	;        iny();
-hitFloor3:
-	;        iny();
-hitFloor4:
+hitFloor:
 	lda #0                             ; Stop movement ("thud")
 	sta playerDY
 
-	txa                               ; Move remaining distance to block (minDistY)
+	lda minDistY                 ; Move remaining distance to block (minDistY)
 	beq noFloorReached     ; No room left below; stay put
 	clc
 	adc playerY
 	sta playerY
 
 noFloorReached:
-	; TODO: check other walls
+	; Check bottom pickupables
+	lda playerMapY
+	and #7
+	beq noBottomRowHit
+	txa
+	clc
+	adc #(CHARSPERROW * (PLAYER_H / 8))
+	tay
+	lda (zpTmp), Y
+	and #64
+	beq noT0
+	jsr pickup
+noT0:
+noBottomRowHit:
+noDownMovement:
+	rts
+
+pickup:
 	rts
