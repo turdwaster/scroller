@@ -140,15 +140,23 @@ checkCollisions:
 	lsr
 	lsr
 	lsr
-	tax                               ; Store X tile offset in X -> X register
 
-	; zpTmp now points to start of tile row at top of entity and X reg holds horiz offset to first touching tile
-	; Start doing collision checks based on movement direction
+	clc                               ; Adjust zpTmp from start of row to start of to leftmost tile
+	adc zpTmp
+	bcc xTileOffsetOk
+	inc zpTmpHi
+xTileOffsetOk:
+	sta zpTmp
 
+	; ZpTmp is now top left tile of player; start doing collision checks based on movement direction
 	lda playerDY
-	beq noDownMovement     ; No vertical movement = no floor check
-	bmi noDownMovement       ; No floor check unless moving down
+	beq noDownMove     ; No vertical movement = no floor check
+	bpl movingDown       ; No floor check unless moving down
 
+noDownMove:
+	jmp noDownMovement
+
+movingDown:
 	lda playerMapY
 	and #7                             ; Calculate minDist to nearest char below Y = 7 - y & 7 (or 0 if Y & 7 == 0)
 	eor #7
@@ -158,16 +166,14 @@ checkCollisions:
 	sta minDistY                  ; Stash minDistY
 
 	sec
-	sbc playerDY                   ; Check if travelling into next block below (could skip all of this if dy == 0)
+	sbc playerDY                   ; Check if travelling into next block below
 	beq checkFloor         ; Aligned to floor tile so must check and handle collision
 	bcs noFloorReached       ; There was room left so no need to look for floor
 
 checkFloor:
 	; Start checking floor
 
-	txa                               ; Get X tile offset
-	clc
-	adc #(CHARSPERROW * (PLAYER_H / 8))              ; Find floor tile row
+	lda #(CHARSPERROW * (PLAYER_H / 8))              ; Find floor tile row
 	ldy minDistY
 	beq skipAdjustFloor    ; No adjustment needed if exactly at tile boundary
 	adc #CHARSPERROW
@@ -184,6 +190,8 @@ skipAdjustFloor:
 	iny
 	lda (zpTmp), Y
 	bmi hitFloor
+
+	; TODO: pre-and playerMapX/playerMapY if not used anymore?
 
 	lda playerMapX                ; Check X "hangover" for player right edge
 	and #7
@@ -205,19 +213,47 @@ hitFloor:
 
 noFloorReached:
 	; Check bottom pickupables
+	ldy #(CHARSPERROW * (PLAYER_H / 8) + 3)	; Assume we poke into bottommost row
+
+noT3:
 	lda playerMapY
 	and #7
-	beq noBottomRowHit
-	txa
-	clc
-	adc #(CHARSPERROW * (PLAYER_H / 8))
-	tay
-	lda (zpTmp), Y
+	beq bottomRowHit	; Only touching bottom row if Y & 7 == 0 - otherwise check 2nd-to-bottom row
+	ldy #(CHARSPERROW * (PLAYER_H / 8 - 1) + 3)
+
+	; AND $40 funkar inte - finns massa tiles som har den biten satt...
+	; När sammanfaller golvchecken med pickup? Går det att undvika upprepning
+	; Kör båda från vänster för enkelhet...
+
+bottomRowHit:
+	lda playerMapX
+	and #7
+	beq noT11_T7 		; No touch for tile-aligned X
+
+	lda (zpTmp), Y		; Check bottom rightmost
 	and #64
-	beq noT0
+	beq noT11_T7
 	jsr pickup
-noT0:
-noBottomRowHit:
+noT11_T7:
+	dey
+	lda (zpTmp), Y		; Check bottom second-to-right
+	and #64
+	beq noT10_T6
+	jsr pickup
+noT10_T6:
+	dey
+	lda (zpTmp), Y		; Check bottom second-to-left
+	and #64
+	beq noT9_T5
+	jsr pickup
+noT9_T5:
+	dey
+	lda (zpTmp), Y		; Check bottom leftmost
+	and #64
+	beq noT8_T4
+	jsr pickup
+noT8_T4:
+
 noDownMovement:
 	rts
 
