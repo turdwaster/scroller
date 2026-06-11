@@ -29,18 +29,18 @@ shiftAnims:
 
 findNextActiveAnim:
 	ldy spawn_x, X
-	bmi allShifted           ; x < 0: tombstone, end scan
-	bne shiftAnimLeft        ; x >= 0: still on screen and can be shifted right away
+	bmi allShifted							; x < 0: tombstone, end scan
+	bne shiftAnimLeft 						; x >= 0: still on screen and can be shifted right away
 
 	lda #255
-	sta anim_stepwait, X           ; Mark as inactive (went off screen)
-	inx                               ; x == 0, so will go off screen now; bump active anim and try next
+	sta anim_stepwait, X					; Mark as inactive (went off screen)
+	inx 									; x == 0, so will go off screen now; bump active anim and try next
 	stx activeAnim
 	jmp findNextActiveAnim
 
 animCheckShiftable:
 	ldy spawn_x, X
-	bmi allShifted           ; Tombstone; passed last active animation; exit
+	bmi allShifted							; Tombstone; passed last active animation; exit
 	; Can't put a tombstone on non-top anim since that ends the list, and can't move activeAnim either...
 
 shiftAnimLeft:
@@ -60,45 +60,45 @@ spawnStuff:
 
 checkSpawn:
 	lda spawn_wait, X
-	bne noSpawnReady ; Active spawn wait count has not reached 0 yet; wait and exit
+	bne noSpawnReady						; Active spawn wait count has not reached 0 yet; wait and exit
 
 	; Spawn wait count is zero - do spawn (could use trampoline here...!)
 	lda anim_firstInstr, X
 	sta anim_pc, X
-	jsr spawnUnit            ; Preserve or reload X!
-	inx                      ; Spawn done - move to next entry
-	jmp checkSpawn    ; Go to processing of next entry
+	jsr spawnUnit 							; Preserve or reload X!
+	inx 									; Spawn done - move to next entry
+	jmp checkSpawn							; Go to processing of next entry
 
 noSpawnReady:
-	dec spawn_wait, X     ; Waiting - tick active spawn wait time down
-	stx activeSpawn      ; Update active ptr to new entry in case we spawned (or same if nothing spawned)
+	dec spawn_wait, X 						; Waiting - tick active spawn wait time down
+	stx activeSpawn 						; Update active ptr to new entry in case we spawned (or same if nothing spawned)
 	rts
 
 	; X holds index in spawn structure
 spawnUnit:
-	lda anim_y, X          ; Neg. y = sprite
+	lda anim_y, X 							; Neg. y = sprite
 	bpl spawnChar
 
-	and #127                   ; Extract Y pos stored as (y/2 | 128) and stow it away
+	and #127								; Extract Y pos stored as (y/2 | 128) and stow it away
 	asl
 	sta zpTmp
 
-	ldy freeSprite        ; Get free index
+	ldy freeSprite							; Get free index
 
 	lda #balloon / 64
-	sta SPRITE_PTRS0, Y     ; Sprite pointer = VIC bank start + acc. * 64
-	sta SPRITE_PTRS1, Y     ; Set it for both char screens since it moves...
+	sta SPRITE_PTRS0, Y 					; Sprite pointer = VIC bank start + acc. * 64
+	sta SPRITE_PTRS1, Y 					; Set it for both char screens since it moves...
 
-	lda SPRITE_X_MSB             ; Set x MSB
+	lda SPRITE_X_MSB						; Set x MSB
 	ora bitValues, Y
 	sta SPRITE_X_MSB
 
 	lda #13
-	sta SPRITE_COLOR, Y          ; Set color
+	sta SPRITE_COLOR, Y 					; Set color
 
 	lda SPRITE_ENABLE
 	ora bitValues, Y
-	sta SPRITE_ENABLE             ; Update enable register
+	sta SPRITE_ENABLE 						; Update enable register
 
 	; ---- From here do all values stored at sprite index * 2 by using doubled Y ----
 	tya
@@ -106,26 +106,26 @@ spawnUnit:
 	tay
 
 	lda zpTmp
-	sta SPRITE_Y, Y          ; Sprite y position
+	sta SPRITE_Y, Y 						; Sprite y position
 
 	lda #XSTARTRIGHT & 255
-	sta SPRITE_X, Y          ; Sprite x low
+	sta SPRITE_X, Y 						; Sprite x low
 
 	lda #1
-	sta sprite_flags, Y    ; Enable movement
+	sta sprite_flags, Y 					; Enable movement
 
-	lda #0                     ; Initial speed
+	lda #0									; Initial speed
 	sta sprite_dx, Y
 	sta sprite_dy, Y
 
-	tya                       ; Save sprite index * 2
+	tya 									; Save sprite index * 2
 	sta anim_sprite_idx, X
 
-	dec freeSprite        ; Allocate and bump
+	dec freeSprite							; Allocate and bump
 	bpl doInitialRun
-	lda #6                     ; Keep sprite 7 for player; restart at 6
+	lda #6									; Keep sprite 7 for player; restart at 6
 	sta freeSprite
-	jmp doInitialRun   ; Immediately run first anim step
+	jmp doInitialRun						; Immediately run first anim step
 
 spawnChar:
 	tay
@@ -149,25 +149,25 @@ doInitialRun:
 	rts
 
 animate:
-	ldx activeAnim            ; X starts at first might-be-active animating entry
+	ldx activeAnim							; X starts at first might-be-active animating entry
 
 checkAnimSlot:
-	lda anim_stepwait, X       ; Delaying until next frame?
+	lda anim_stepwait, X					; Delaying until next frame?
 	beq runFrame
-	bmi animsDone        ; Neg. value => not spawned yet; end of active list
+	bmi animsDone 							; Neg. value => not spawned yet; end of active list
 
-	sec                           ; Decrease next frame wait
+	sec 									; Decrease next frame wait
 	sbc #1
 	sta anim_stepwait, X
-	bcs checkNextSlot    ; Still is waiting for next frame; check next entry
+	bcs checkNextSlot 						; Still is waiting for next frame; check next entry
 
 runFrame:
-	lda anim_stepdelay, X      ; Reset frame delay
+	lda anim_stepdelay, X 					; Reset frame delay
 	sta anim_stepwait, X
 	jsr runAnimTick
 
 checkNextSlot:
-	inx                           ; X must be preserved!
+	inx 									; X must be preserved!
 	bne checkAnimSlot
 
 animsDone:
@@ -176,30 +176,30 @@ animsDone:
 	; X = anim slot index
 runAnimTick:
 	ldy anim_pc, X
-	bne runAnimInstr     ; Magic zero end-of-program PC?
+	bne runAnimInstr						; Magic zero end-of-program PC?
 	lda #0
-	sta spawn_x, X             ; Disable animation slot and exit
+	sta spawn_x, X							; Disable animation slot and exit
 	rts
 
 runAnimInstr:
-	sty curPc                 ; Save PC to be able to update later
-	lda #0                         ; Clear continue-next-instr flag
+	sty curPc 								; Save PC to be able to update later
+	lda #0									; Clear continue-next-instr flag
 	sta continueFlag
 
 	lda anim_instrs, Y
 	bpl noJump
 
-	clc                           ; JMP instruction - update PC and do next instr
+	clc 									; JMP instruction - update PC and do next instr
 	adc curPc
 	bne keepProcessing
-	jmp updatePc           ; END instruction; store PC and bail
+	jmp updatePc							; END instruction; store PC and bail
 
 keepProcessing:
-	tay                           ; Immediately run next instruction
+	tay 									; Immediately run next instruction
 	jmp runAnimInstr
 
 noJump:
-	cmp #64                        ; Check for continuation flag
+	cmp #64 								; Check for continuation flag
 	bcc execInstr
 	and #63
 	sta continueFlag
@@ -226,14 +226,14 @@ doNop:
 
 doSetFrame:
 	lda anim_operands, Y
-	sta anim_cur, X            ; Store updated frame/char index
+	sta anim_cur, X 						; Store updated frame/char index
 
 	; Draw updated character
 	lda anim_addr_lo, X
 	sta zpTmp
 	lda anim_addr_hi, X
 	sta zpTmpHi
-	lda anim_cur, X            ; Reloading cur; out of registers since X is entry and Y is x pos...
+	lda anim_cur, X 						; Reloading cur; out of registers since X is entry and Y is x pos...
 	ldy spawn_x, X
 	sta (zpTmp), Y
 	jmp nextAnimInstr
@@ -252,13 +252,13 @@ doSetCol:
 	jmp nextAnimInstr
 
 doSetSpeedX:
-	lda anim_operands, Y       ; Stow new speed operand
+	lda anim_operands, Y					; Stow new speed operand
 	ldy anim_sprite_idx, X
 	sta sprite_dx, Y
 	jmp nextAnimInstr
 
 doSetSpeedY:
-	lda anim_operands, Y       ; Stow new speed operand
+	lda anim_operands, Y					; Stow new speed operand
 	ldy anim_sprite_idx, X
 	sta sprite_dy, Y
 	jmp nextAnimInstr
@@ -275,27 +275,27 @@ doSetSprite:
 	jmp nextAnimInstr
 
 nextAnimInstr:
-	ldy curPc                 ; Processing done; skip to next instruction
+	ldy curPc 								; Processing done; skip to next instruction
 	iny
 	lda continueFlag
-	beq execDone     ; Continue-with-next flag set: do another instr
+	beq execDone							; Continue-with-next flag set: do another instr
 	jmp runAnimInstr
 
 execDone:
 	tya
 
 updatePc:
-	sta anim_pc, X         ; Save PC for next tick and end execution of this slot
+	sta anim_pc, X							; Save PC for next tick and end execution of this slot
 
 noRun:
 	rts
 
 redrawWaitingCharAnims:
-	ldx activeAnim            ; X starts at first might-be-active animating entry
+	ldx activeAnim							; X starts at first might-be-active animating entry
 
 drawNextAnimSlot:
 	lda anim_stepwait, X
-	bmi drawsDone        ; Neg. value => not spawned yet; end of active list
+	bmi drawsDone 							; Neg. value => not spawned yet; end of active list
 
 	; Draw current frame char
 	lda anim_addr_lo, X
@@ -313,7 +313,7 @@ drawsDone:
 	rts
 
 swapAnimTarget:
-	ldx activeAnim            ; X starts at first might-be-active animating entry
+	ldx activeAnim							; X starts at first might-be-active animating entry
 
 swapNextAnim:
 	lda spawn_x, X
@@ -364,10 +364,10 @@ moveNextSprite:
 	lda sprite_dx, X
 	clc
 	adc scrollSpeed
-	beq moveY ; Resulting speed is zero; no change
+	beq moveY 								; Resulting speed is zero; no change
 
 	clc
-	bmi moveLeft         ; Speed is negative; treat overflow for x MSB backwards
+	bmi moveLeft							; Speed is negative; treat overflow for x MSB backwards
 
 	adc SPRITE_X, X
 	sta SPRITE_X, X
@@ -379,52 +379,52 @@ moveLeft:
 	sta SPRITE_X, X
 	bcs moveY
 
-	lda bitValuesX2, X     ; Get bit value for current sprite
-	tay                       ; Save "our" bit for reuse
+	lda bitValuesX2, X						; Get bit value for current sprite
+	tay 									; Save "our" bit for reuse
 
 	; If MSB = 0, speed negative and about to flip: going off screen => disable?
 	; At this point: about to flip = true; speed neg = true, so check MSB.
-	and SPRITE_X_MSB             ; Could use a zp temp and store d010 at the end instead
-	bne writeMSB     ; MSB set so still at x > 0 (and < 256)
+	and SPRITE_X_MSB						; Could use a zp temp and store d010 at the end instead
+	bne writeMSB							; MSB set so still at x > 0 (and < 256)
 
-	sta sprite_flags, X    ; Disable movement and hide sprite (A is zero from prev. AND)
+	sta sprite_flags, X 					; Disable movement and hide sprite (A is zero from prev. AND)
 	tya
 	eor SPRITE_ENABLE
 	sta SPRITE_ENABLE
 	jmp spriteMoveDone
 
 flipMSB:
-	lda bitValuesX2, X     ; Get bit value for current sprite
+	lda bitValuesX2, X						; Get bit value for current sprite
 
 writeMSB:
-	eor SPRITE_X_MSB             ; Could use a zp temp and store d010 at the end instead
+	eor SPRITE_X_MSB						; Could use a zp temp and store d010 at the end instead
 	sta SPRITE_X_MSB
 
 moveY:
 	; Y movement
 	lda sprite_dy, X
-	beq spriteMoveDone ; Resulting speed is zero; no change
+	beq spriteMoveDone						; Resulting speed is zero; no change
 	clc
 	bmi moveUp
 
-	adc SPRITE_Y, X              ; Move down
-	bcs killSprite       ; Carry set => Y + dy wrapped => kill sprite
+	adc SPRITE_Y, X 						; Move down
+	bcs killSprite							; Carry set => Y + dy wrapped => kill sprite
 	jmp writeY
 
 moveUp:
 	adc SPRITE_Y, X
-	bcs writeY       ; Carry clear => (Y + neg. dy) did *not* wrap => negative Y => kill sprite
+	bcs writeY								; Carry clear => (Y + neg. dy) did *not* wrap => negative Y => kill sprite
 
 killSprite:
 	lda #0
-	sta sprite_flags, X    ; Disable movement and hide sprite
+	sta sprite_flags, X 					; Disable movement and hide sprite
 	lda bitValuesX2, X
 	eor SPRITE_ENABLE
 	sta SPRITE_ENABLE
 	jmp spriteMoveDone
 
 writeY:
-	sta SPRITE_Y, X          ; Update Y
+	sta SPRITE_Y, X 						; Update Y
 
 spriteMoveDone:
 	dex
