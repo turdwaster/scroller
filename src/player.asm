@@ -231,3 +231,4 @@ noDownMovement:
 
 pickup:
 	rts
+	; Add a newline to prevent breakpoint bugs in VS64
