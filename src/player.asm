@@ -17,6 +17,7 @@ PLAYER_H = 16
 TOPEDGE = 50
 LEFTEDGE = 24
 GRAVITY_DELAY = 1
+pickups: !byte 0, 0, 0, 0, 0, 0, 0, 0
 
 resetPlayer:
 	lda #7									; Spawn player sprite (TODO: overlap with spawnStuff...)
@@ -113,6 +114,16 @@ setScrollSpeed:
 	stx scrollSpeed
 	rts
 
+	; Peek at floor tile at (zpTmp),Y: solid tile (bit 7) branches out, item (bit 6) is picked up
+!macro chkTile .branchTarget {
+	lda (zpTmp), Y
+	asl
+	bcs .branchTarget 						; Hit a solid tile
+	bpl .noTile 							; Nothing here
+	jsr pickup
+.noTile:
+}
+
 checkCollisions:
 	lda playerX 							; Get and store actual tile relative player X
 	sec
@@ -168,67 +179,67 @@ movingDown:
 	sec
 	sbc playerDY							; Check if travelling into next block below
 	beq checkFloor							; Aligned to floor tile so must check and handle collision
-	bcs floorCheckDone						; There was room left so no need to look for floor
+	bcs noDownMovement						; There was room left so no need to look for floor
 
 checkFloor:
 	; Start checking floor
 	lda #(CHARSPERROW * (PLAYER_H / 8))              ; Find floor tile row
 	ldy minDistY
-	beq chkTileB0 							; No adjustment needed if exactly at tile boundary
+	beq checkFloorTiles 					; No adjustment needed if exactly at tile boundary
 	clc
 	adc #CHARSPERROW
 
+checkFloorTiles:
+	ldx #255								; Initialize pickup buffer and index
+	stx pickups
+	ldx #0
+
 chkTileB0:
 	tay
-	lda (zpTmp), Y							; Start peeking for floor tiles left to right
-	asl
-	bcs hitFloor
-	bpl chkTileB1 							; Nothing here; check next
-	jsr pickup
+	+chkTile hitFloor
 
-chkTileB1:
 	iny
-	lda (zpTmp), Y
-	asl
-	bcs hitFloor
-	bpl chkTileB2 							; Nothing here; check next
-	jsr pickup
+	+chkTile hitFloor
 
-chkTileB2:
 	iny
-	lda (zpTmp), Y
-	asl
-	bcs hitFloor
-	bpl chkTileB3 							; Nothing here; check next
-	jsr pickup
+	+chkTile hitFloor
 
-chkTileB3:
-	iny
 	lda playerMapX							; Check X "hangover" for player right edge
 	and #7
 	beq floorCheckDone						; Not poking out over rightmost char!
 
-	lda (zpTmp), Y
-	asl
-	bcs hitFloor
-	bpl floorCheckDone						; Nothing here; check next
-	jsr pickup
-	jmp floorCheckDone
+	iny
+	+chkTile hitFloor
+
+floorCheckDone:
+	ldx #0
+	lda pickups, X
+	cmp #255
+	beq noDownMovement
+
+	ldx #1 ; Do pickup
+
+noDownMovement:
+	rts
 
 hitFloor:
 	lda #0									; Stop movement ("thud")
 	sta playerDY
 
 	lda minDistY							; Move remaining distance to block (minDistY)
-	beq floorCheckDone						; No room left below; stay put
+	beq alreadyOnFloor						; No room left below; stay put
 	clc
 	adc playerY
 	sta playerY
-
-floorCheckDone:
-noDownMovement:
+alreadyOnFloor:
 	rts
 
 pickup:
+	tya  ; Stash offset where pickup was found
+	sta pickups, X
+	inx
+	lda #255
+	sta pickups, X							; Tombstone next slot
 	rts
 	; Add a newline to prevent breakpoint bugs in VS64
+	
