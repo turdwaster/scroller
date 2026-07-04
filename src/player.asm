@@ -42,12 +42,12 @@ checkPlayerMovement:
 	bcs noUpJoy
 
 	ldy playerDY
-	bmi checkRight							; Already moving up
+	bmi checkDown							; Already moving up
 
 	dey 									; Accelerate upward (max speed will be -1)
 	; ldy #256 - 2                             ;  Alternative: jump boost
 	sty playerDY
-	jmp checkRight
+	jmp checkDown
 
 noUpJoy:
 	tax
@@ -66,22 +66,21 @@ alwaysFall:
 restoreJoyBits:
 	txa
 
-checkRight:
+checkDown:
 	lsr
 	bcs checkLeft
 	ldy #1
 
 checkLeft:
 	lsr
-	bcs noLeftJoy
+	bcs checkRight
 	ldy #255
 	lsr
 	jmp setPlayerDx
 
-noLeftJoy:
+checkRight:
 	lsr
 	bcs noRightJoy
-
 	tay 									; Check right side limit of player; scroll if trying to go right
 	lda SPRITE_X_MSB
 	and #playerBit
@@ -120,7 +119,7 @@ setScrollSpeed:
 	asl
 	bcs .branchTarget 						; Hit a solid tile
 	bpl .noTile 							; Nothing here
-	jsr pickup
+	jsr registerPickup
 .noTile:
 }
 
@@ -194,30 +193,33 @@ checkFloorTiles:
 	stx pickups
 	ldx #0
 
-chkTileB0:
 	tay
 	+chkTile hitFloor
-
 	iny
 	+chkTile hitFloor
-
 	iny
 	+chkTile hitFloor
 
 	lda playerMapX							; Check X "hangover" for player right edge
 	and #7
 	beq floorCheckDone						; Not poking out over rightmost char!
-
 	iny
 	+chkTile hitFloor
 
 floorCheckDone:
-	ldx #0
+	ldx playerDY							; Determine if moving into a tile
+	cpx minDistY
+	beq pickupsDone							; Not ending up inside tile, so ignore pickup list
+	bcc pickupsDone							; Not ending up inside tile, so ignore pickup list
+
+	ldx #0									; Process pickup list
+nextPickup:
 	lda pickups, X
 	cmp #255
-	beq noDownMovement
-
-	ldx #1 ; Do pickup
+	beq pickupsDone
+	inx
+	bne nextPickup
+pickupsDone:
 
 noDownMovement:
 	rts
@@ -234,7 +236,7 @@ hitFloor:
 alreadyOnFloor:
 	rts
 
-pickup:
+registerPickup:
 	tya  ; Stash offset where pickup was found
 	sta pickups, X
 	inx
@@ -242,4 +244,3 @@ pickup:
 	sta pickups, X							; Tombstone next slot
 	rts
 	; Add a newline to prevent breakpoint bugs in VS64
-	
