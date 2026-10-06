@@ -1,4 +1,26 @@
+	ANIMSTRUCT = 4
+	ANIMS = (flat_anims_end-flat_anims) / ANIMSTRUCT
+
 resetAnims:
+	ldx #0
+	ldy #0
+writeAnim:
+	lda flat_anims, X
+	sta spawn_wait, Y
+	lda flat_anims+1, X
+	sta anim_y, Y
+	lda flat_anims+2, X
+	sta anim_stepdelay, Y
+	lda flat_anims+3, X
+	sta anim_firstInstr, Y
+	txa
+	clc
+	adc #ANIMSTRUCT
+	tax
+	iny
+	cpy #ANIMS
+	bne writeAnim
+
 	lda #0
 	sta activeAnim
 	sta activeSpawn
@@ -209,9 +231,9 @@ execInstr:
 	cmp #0
 	beq doNop
 	cmp #1
-	beq doSetFrame
+	beq doSetTile
 	cmp #2
-	beq doSetCol
+	beq doSetTileCol
 	cmp #3
 	beq doSetSpeedX
 	cmp #4
@@ -224,7 +246,7 @@ execInstr:
 doNop:
 	jmp nextAnimInstr
 
-doSetFrame:
+doSetTile:
 	lda anim_operands, Y
 	sta anim_cur, X 						; Store updated frame/char index
 
@@ -238,7 +260,7 @@ doSetFrame:
 	sta (zpTmp), Y
 	jmp nextAnimInstr
 
-doSetCol:
+doSetTileCol:
 	lda anim_addr_lo, X
 	sta zpTmp
 	lda anim_addr_hi, X
