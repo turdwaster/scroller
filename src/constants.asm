@@ -22,6 +22,8 @@ charBank = $fc
 zpTmp2 = $fd
 zpTmp = $fe
 zpTmpHi = $ff
+zpTmp3 = $d0
+zpTmp3Hi = $d1
 
 ; Anim zero page
 bitValues = $e0 ; - $e7

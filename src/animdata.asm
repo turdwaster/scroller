@@ -16,6 +16,7 @@ anim_cur:		!fill ANIMSLOTS, $e4
 anim_addr_lo: 	!fill ANIMSLOTS, $e5
 anim_addr_hi: 	!fill ANIMSLOTS, $e6
 anim_pc:		!fill ANIMSLOTS, $e7
+anim_hitInstr:	!fill ANIMSLOTS, 0
 
 ; Repurposed sprite anim state
 anim_sprite_idx = anim_addr_lo

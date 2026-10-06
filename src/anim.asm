@@ -7,11 +7,11 @@ resetAnims:
 writeAnim:
 	lda flat_anims, X
 	sta spawn_wait, Y
-	lda flat_anims+1, X
+	lda flat_anims + 1, X
 	sta anim_y, Y
-	lda flat_anims+2, X
+	lda flat_anims + 2, X
 	sta anim_stepdelay, Y
-	lda flat_anims+3, X
+	lda flat_anims + 3, X
 	sta anim_firstInstr, Y
 	txa
 	clc
@@ -332,6 +332,41 @@ drawNextAnimSlot:
 	bne drawNextAnimSlot
 
 drawsDone:
+	rts
+
+hitCharAnim:
+	ldx activeAnim							; X starts at first might-be-active animating entry
+
+hitNextAnimSlot:
+	ldy anim_stepwait, X
+	bmi hitsDone							; Neg. value => not spawned yet; end of active list
+
+	lda anim_addr_lo, X 					; Compare tile address
+	clc
+	adc spawn_x
+
+	ldy #0									; Store carry in Y register to use with high byte
+	bcc noCarry
+	iny
+noCarry:
+	cmp zpTmp3
+	bne noHitMatch
+
+	tya 									; Use stored carry to calculate high byte
+	clc
+	adc anim_addr_hi, X
+	cmp zpTmp3Hi
+	bne noHitMatch
+
+	lda anim_hitInstr, X					; Found it: set PC to start of disappearance program
+	sta anim_pc, X
+	rts
+
+noHitMatch:
+	inx
+	bne hitNextAnimSlot
+
+hitsDone:
 	rts
 
 swapAnimTarget:
